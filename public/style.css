@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PUJA PUNEET BRAND THEME & STYLESHEET (LIGHT MODE)
+   PUJA PUNEET BRAND THEME & STYLESHEET (DARK THEME)
    ========================================================================== */
 
 /* Load custom Walkway font faces */
@@ -104,35 +104,35 @@
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap');
 
 :root {
-  /* Colors from PUJA PUNEET Design System */
-  --bg-main: #FFFFFF;          /* Background White */
-  --bg-secondary: #F9F9F8;     /* Layout Light Grey */
-  --bg-card: #FFFFFF;          /* Card Background */
-  --bg-card-hover: #FCFBF9;    /* Card Hover Background */
+  /* Colors from PUJA PUNEET Design System (DARK THEME) */
+  --bg-main: #121212;          /* Layout base dark grey/black */
+  --bg-secondary: #1E1E1E;     /* Leather (Secondary Layout Background) */
+  --bg-card: #1E1E1E;          /* Card Background */
+  --bg-card-hover: #292929;    /* Card Hover Background */
   
-  --text-main: #1E1E1E;        /* Leather */
-  --text-muted: #8A8A8A;       /* Cement */
+  --text-main: #FFFFFF;        /* White Text */
+  --text-muted: #A0A0A0;       /* Lighter Cement for readability */
   
   --primary: #4B2E2B;          /* Cacao (Primary Accent) */
   --primary-hover: #3C2422;    /* Darker Cacao */
-  --primary-glow: rgba(75, 46, 43, 0.08);
+  --primary-glow: rgba(75, 46, 43, 0.20);
   
   --secondary: #C6A268;        /* Gold (Secondary Accent) */
   --secondary-hover: #B79359;  /* Darker Gold */
-  --secondary-glow: rgba(198, 162, 104, 0.08);
+  --secondary-glow: rgba(198, 162, 104, 0.20);
   
-  --border-color: #E5E5E5;     /* Grey (Borders / Dividers) */
-  --border-focus: #4B2E2B;     /* Focus Cacao */
+  --border-color: #2D2D2D;     /* Dark Grey borders instead of light grey */
+  --border-focus: #C6A268;     /* Focus Gold */
   
   /* Status Color Mappings */
-  --success: #4F5A45;          /* Sage (Success / Growth) */
-  --success-glow: rgba(79, 90, 69, 0.08);
+  --success: #5F6D53;          /* Sage (Slightly lighter success for dark mode) */
+  --success-glow: rgba(95, 109, 83, 0.20);
   --warning: #C6A268;          /* Gold */
-  --warning-glow: rgba(198, 162, 104, 0.08);
-  --danger: #A32828;           /* Error / Alert Red */
-  --danger-glow: rgba(163, 40, 40, 0.08);
-  --info: #8A8A8A;             /* Cement */
-  --info-glow: rgba(138, 138, 138, 0.08);
+  --warning-glow: rgba(198, 162, 104, 0.20);
+  --danger: #C0392B;           /* Slightly lighter error red for dark mode */
+  --danger-glow: rgba(192, 57, 43, 0.20);
+  --info: #A0A0A0;             /* Lighter Cement */
+  --info-glow: rgba(160, 160, 160, 0.20);
   
   /* Typography Guidelines */
   --font-sans: 'Walkway', -apple-system, BlinkMacSystemFont, sans-serif;
