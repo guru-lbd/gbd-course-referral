@@ -61,20 +61,48 @@ async function initDatabase() {
     const configData = await configRes.json();
     useBackend = !!configData.persistentBackend;
     
+    // Parse system settings from config payload directly
+    systemSettings = {
+      friend_discount_enabled: configData.friendDiscountEnabled,
+      friend_discount_percent: configData.friendDiscountPercent,
+      commission_enabled: configData.commissionEnabled,
+      commission_amount: configData.commissionAmount
+    };
+    
     if (useBackend) {
-      const res = await fetch('/api/admin/data');
-      if (!res.ok) throw new Error('API request failed');
-      const data = await res.json();
-      
-      users = data.users || [];
-      referralProfiles = data.affiliates || [];
-      clicks = data.clicks || [];
-      signups = data.signups || [];
-      eventLogs = data.events || [];
-      
-      const settingsRes = await fetch('/api/admin/settings');
-      if (settingsRes.ok) {
-        systemSettings = await settingsRes.json();
+      if (isAdminPage) {
+        // Fetch admin data and settings in parallel
+        const [dataRes, settingsRes] = await Promise.all([
+          fetch('/api/admin/data'),
+          fetch('/api/admin/settings')
+        ]);
+        
+        if (!dataRes.ok) throw new Error('Admin data request failed');
+        const data = await dataRes.json();
+        
+        users = data.users || [];
+        referralProfiles = data.affiliates || [];
+        clicks = data.clicks || [];
+        signups = data.signups || [];
+        eventLogs = data.events || [];
+        allSignups = data.allSignups || [];
+        
+        if (settingsRes.ok) {
+          systemSettings = await settingsRes.json();
+        }
+      } else if (isClientPage) {
+        // Fetch current user details if logged in
+        const session = localStorage.getItem('gbd_current_user');
+        if (session) {
+          const cachedUser = JSON.parse(session);
+          const userRes = await fetch(`/api/users/me?email=${encodeURIComponent(cachedUser.email)}`);
+          if (userRes.ok) {
+            const userData = await userRes.json();
+            currentUser = userData.user;
+            currentUser.affiliate = userData.affiliate;
+            localStorage.setItem('gbd_current_user', JSON.stringify(currentUser));
+          }
+        }
       }
       
       console.log('Synchronized database with persistent backend server.');
@@ -150,8 +178,19 @@ function logSystemEvent(eventType, payload) {
   }
 }
 
-// Helper to dynamically get or create a referral profile for a user
 function getOrCreateReferralProfile(email, name) {
+  if (useBackend && currentUser && currentUser.email === email && currentUser.affiliate) {
+    return {
+      email: currentUser.email,
+      affiliate_code: currentUser.affiliate.affiliate_code,
+      coupon_code: currentUser.affiliate.coupon_code,
+      referrals_count: currentUser.affiliate.total_signups,
+      earnings: currentUser.affiliate.total_commission,
+      total_signups: currentUser.affiliate.total_signups,
+      total_commission: currentUser.affiliate.total_commission
+    };
+  }
+  
   let profile = referralProfiles.find(r => r.email === email);
   if (!profile) {
     const cleanName = name.replace(/[^a-zA-Z]/g, '').substring(0, 4).toUpperCase();
@@ -188,26 +227,46 @@ function initClientPortal() {
   const refCode = urlParams.get('ref');
 
   if (refCode) {
-    const referrerProfile = referralProfiles.find(r => r.affiliate_code === refCode.toUpperCase());
-    if (referrerProfile) {
-      const referrerUser = users.find(u => u.email === referrerProfile.email);
-      const referrerName = referrerUser ? referrerUser.name : 'Unknown User';
-      
+    if (useBackend) {
       // Save referral to browser session cookie/localstorage
-      localStorage.setItem('gbd_active_referral', referrerProfile.affiliate_code);
+      localStorage.setItem('gbd_active_referral', refCode.toUpperCase());
       
-      // Log Click Event via API first
+      // Log Click Event via API
       fetch('/api/clicks/log', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          affiliateCode: referrerProfile.affiliate_code,
+          affiliateCode: refCode.toUpperCase(),
           ip: 'Simulated Visitor'
         })
-      }).then(async () => {
-        await initDatabase(); // Refresh local memory
-      }).catch(err => {
-        console.warn('Click log API failed, falling back to LocalStorage:', err);
+      })
+      .then(async (res) => {
+        if (res.ok) {
+          const data = await res.json();
+          // Cache name and coupon in localStorage
+          localStorage.setItem('gbd_active_referrer_name', data.referrerName);
+          localStorage.setItem('gbd_active_coupon_code', data.couponCode);
+          
+          // Show banner
+          document.getElementById('referred-banner').style.display = 'block';
+          document.getElementById('referred-banner-text').innerHTML = `You were referred by <strong>${data.referrerName}</strong>. Apply their coupon code <code>${data.couponCode}</code> at checkout to save 10%!`;
+        }
+      })
+      .catch(err => console.warn('Click log API failed:', err));
+
+      // Clean query params from URL bar
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else {
+      const referrerProfile = referralProfiles.find(r => r.affiliate_code === refCode.toUpperCase());
+      if (referrerProfile) {
+        const referrerUser = users.find(u => u.email === referrerProfile.email);
+        const referrerName = referrerUser ? referrerUser.name : 'Unknown User';
+        
+        // Save referral to browser session cookie/localstorage
+        localStorage.setItem('gbd_active_referral', referrerProfile.affiliate_code);
+        localStorage.setItem('gbd_active_referrer_name', referrerName);
+        localStorage.setItem('gbd_active_coupon_code', referrerProfile.coupon_code);
+        
         const click = {
           affiliate_code: referrerProfile.affiliate_code,
           affiliate_name: referrerName,
@@ -222,25 +281,46 @@ function initClientPortal() {
           affiliate_name: referrerName,
           ip: 'Simulated Visitor'
         });
-      });
 
-      // Show banner
-      document.getElementById('referred-banner').style.display = 'block';
-      document.getElementById('referred-banner-text').innerHTML = `You were referred by <strong>${referrerName}</strong>. Apply their coupon code <code>${referrerProfile.coupon_code}</code> at checkout to save 10%!`;
-      
-      // Clean query params from URL bar
-      window.history.replaceState({}, document.title, window.location.pathname);
+        // Show banner
+        document.getElementById('referred-banner').style.display = 'block';
+        document.getElementById('referred-banner-text').innerHTML = `You were referred by <strong>${referrerName}</strong>. Apply their coupon code <code>${referrerProfile.coupon_code}</code> at checkout to save 10%!`;
+        
+        // Clean query params from URL bar
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
     }
   } else {
     // Check if there is an active referral cookie in storage
     const activeRef = localStorage.getItem('gbd_active_referral');
     if (activeRef) {
-      const referrerProfile = referralProfiles.find(r => r.affiliate_code === activeRef);
-      if (referrerProfile) {
-        const referrerUser = users.find(u => u.email === referrerProfile.email);
-        const referrerName = referrerUser ? referrerUser.name : 'Unknown User';
-        document.getElementById('referred-banner').style.display = 'block';
-        document.getElementById('referred-banner-text').innerHTML = `You were referred by <strong>${referrerName}</strong>. Apply their coupon code <code>${referrerProfile.coupon_code}</code> at checkout to save 10%!`;
+      if (useBackend) {
+        const cachedName = localStorage.getItem('gbd_active_referrer_name');
+        const cachedCoupon = localStorage.getItem('gbd_active_coupon_code');
+        if (cachedName && cachedCoupon) {
+          document.getElementById('referred-banner').style.display = 'block';
+          document.getElementById('referred-banner-text').innerHTML = `You were referred by <strong>${cachedName}</strong>. Apply their coupon code <code>${cachedCoupon}</code> at checkout to save 10%!`;
+        } else {
+          fetch(`/api/referrals/lookup?code=${encodeURIComponent(activeRef)}`)
+            .then(res => res.json())
+            .then(data => {
+              if (data.success) {
+                localStorage.setItem('gbd_active_referrer_name', data.name);
+                localStorage.setItem('gbd_active_coupon_code', data.coupon_code);
+                document.getElementById('referred-banner').style.display = 'block';
+                document.getElementById('referred-banner-text').innerHTML = `You were referred by <strong>${data.name}</strong>. Apply their coupon code <code>${data.coupon_code}</code> at checkout to save 10%!`;
+              }
+            })
+            .catch(err => console.warn('Referral lookup failed:', err));
+        }
+      } else {
+        const referrerProfile = referralProfiles.find(r => r.affiliate_code === activeRef);
+        if (referrerProfile) {
+          const referrerUser = users.find(u => u.email === referrerProfile.email);
+          const referrerName = referrerUser ? referrerUser.name : 'Unknown User';
+          document.getElementById('referred-banner').style.display = 'block';
+          document.getElementById('referred-banner-text').innerHTML = `You were referred by <strong>${referrerName}</strong>. Apply their coupon code <code>${referrerProfile.coupon_code}</code> at checkout to save 10%!`;
+        }
       }
     }
   }
@@ -249,8 +329,10 @@ function initClientPortal() {
   const session = localStorage.getItem('gbd_current_user');
   if (session) {
     currentUser = JSON.parse(session);
-    const freshUser = users.find(u => u.email === currentUser.email);
-    if (freshUser) currentUser = freshUser;
+    if (!useBackend) {
+      const freshUser = users.find(u => u.email === currentUser.email);
+      if (freshUser) currentUser = freshUser;
+    }
     
     document.getElementById('portal-panel').style.display = 'block';
     document.getElementById('welcome-message').textContent = `Logged in as: ${currentUser.name}`;
@@ -743,7 +825,7 @@ function renderCart() {
 }
 
 // Apply typed coupon code manually
-function applyCartCoupon() {
+async function applyCartCoupon() {
   const code = document.getElementById('cart-coupon-input').value.trim().toUpperCase();
   const validationMsg = document.getElementById('coupon-validation-msg');
 
@@ -753,24 +835,71 @@ function applyCartCoupon() {
     return;
   }
 
-  const match = referralProfiles.find(r => r.coupon_code === code);
-  if (match) {
-    if (match.email === currentUser.email) {
-      validationMsg.textContent = 'You cannot use your own referral code.';
+  if (useBackend) {
+    try {
+      const res = await fetch(`/api/referrals/lookup?code=${encodeURIComponent(code)}`);
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Invalid coupon code.');
+      }
+      const match = await res.json();
+      if (match.email === currentUser.email) {
+        validationMsg.textContent = 'You cannot use your own referral code.';
+        validationMsg.className = 'text-danger';
+        return;
+      }
+      
+      localStorage.setItem('gbd_active_referral', match.affiliate_code);
+      localStorage.setItem('gbd_active_referrer_name', match.name);
+      localStorage.setItem('gbd_active_coupon_code', match.coupon_code);
+      
+      validationMsg.textContent = `✓ Coupon applied! Referred by ${match.name}. 10% discount added.`;
+      validationMsg.className = 'text-success';
+      
+      // Update referred-banner if present
+      const banner = document.getElementById('referred-banner');
+      const bannerText = document.getElementById('referred-banner-text');
+      if (banner && bannerText) {
+        banner.style.display = 'block';
+        bannerText.innerHTML = `You were referred by <strong>${match.name}</strong>. Apply their coupon code <code>${match.coupon_code}</code> at checkout to save 10%!`;
+      }
+      
+      renderCart(); // Recalculate
+    } catch (err) {
+      validationMsg.textContent = err.message;
       validationMsg.className = 'text-danger';
-      return;
     }
-    const referrerUser = users.find(u => u.email === match.email);
-    const referrerName = referrerUser ? referrerUser.name : 'Unknown User';
-    
-    // Save to referral
-    localStorage.setItem('gbd_active_referral', match.affiliate_code);
-    validationMsg.textContent = `✓ Coupon applied! Referred by ${referrerName}. 10% discount added.`;
-    validationMsg.className = 'text-success';
-    renderCart(); // Recalculate
   } else {
-    validationMsg.textContent = 'Invalid coupon code.';
-    validationMsg.className = 'text-danger';
+    const match = referralProfiles.find(r => r.coupon_code === code);
+    if (match) {
+      if (match.email === currentUser.email) {
+        validationMsg.textContent = 'You cannot use your own referral code.';
+        validationMsg.className = 'text-danger';
+        return;
+      }
+      const referrerUser = users.find(u => u.email === match.email);
+      const referrerName = referrerUser ? referrerUser.name : 'Unknown User';
+      
+      localStorage.setItem('gbd_active_referral', match.affiliate_code);
+      localStorage.setItem('gbd_active_referrer_name', referrerName);
+      localStorage.setItem('gbd_active_coupon_code', match.coupon_code);
+      
+      validationMsg.textContent = `✓ Coupon applied! Referred by ${referrerName}. 10% discount added.`;
+      validationMsg.className = 'text-success';
+      
+      // Update referred-banner if present
+      const banner = document.getElementById('referred-banner');
+      const bannerText = document.getElementById('referred-banner-text');
+      if (banner && bannerText) {
+        banner.style.display = 'block';
+        bannerText.innerHTML = `You were referred by <strong>${referrerName}</strong>. Apply their coupon code <code>${match.coupon_code}</code> at checkout to save 10%!`;
+      }
+      
+      renderCart(); // Recalculate
+    } else {
+      validationMsg.textContent = 'Invalid coupon code.';
+      validationMsg.className = 'text-danger';
+    }
   }
 }
 

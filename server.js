@@ -99,7 +99,14 @@ app.post('/api/auth/register', async (req, res) => {
       name: name.trim(),
       email: email.trim().toLowerCase(),
       purchased_courses: [],
-      referred_by: referred_by
+      referred_by: referred_by,
+      affiliate: {
+        affiliate_code: affiliateCode,
+        coupon_code: couponCode,
+        total_clicks: 0,
+        total_signups: 0,
+        total_commission: 0.00
+      }
     };
 
     await db.logEvent('AffiliateRegistered', {
@@ -135,13 +142,30 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(400).json({ error: 'Incorrect password.' });
     }
 
+    const affiliate = await db.get(`
+      SELECT a.affiliate_code, a.coupon_code,
+        (SELECT COUNT(*) FROM clicks WHERE affiliate_id = a.id) as total_clicks,
+        (SELECT COUNT(*) FROM signups WHERE affiliate_id = a.id) as total_signups,
+        (SELECT COALESCE(SUM(commission_amount), 0.0) FROM signups WHERE affiliate_id = a.id) as total_commission
+      FROM affiliates a
+      WHERE a.email = ?
+    `, [email.trim().toLowerCase()]);
+
     const courses = JSON.parse(user.purchased_courses || '[]');
     res.json({
       success: true,
       user: {
         name: user.name,
         email: user.email,
-        purchased_courses: courses
+        purchased_courses: courses,
+        referred_by: user.referred_by,
+        affiliate: affiliate ? {
+          affiliate_code: affiliate.affiliate_code,
+          coupon_code: affiliate.coupon_code,
+          total_clicks: Number(affiliate.total_clicks) || 0,
+          total_signups: Number(affiliate.total_signups) || 0,
+          total_commission: Number(affiliate.total_commission) || 0
+        } : null
       }
     });
 
@@ -244,13 +268,93 @@ app.post('/api/clicks/log', async (req, res) => {
         ip: ipAddress
       });
 
-      return res.json({ success: true });
+      return res.json({
+        success: true,
+        referrerName: affiliate.name,
+        couponCode: affiliate.coupon_code
+      });
     }
     res.status(400).json({ error: 'Invalid affiliate code.' });
 
   } catch (err) {
     console.error('Log click error:', err);
     res.status(500).json({ error: 'Failed to log click.' });
+  }
+});
+
+// GET: Fetch current user profile and affiliate stats
+app.get('/api/users/me', async (req, res) => {
+  const { email } = req.query;
+  if (!email) {
+    return res.status(400).json({ error: 'Email is required.' });
+  }
+
+  try {
+    const user = await db.get('SELECT * FROM users WHERE email = ?', [email.trim().toLowerCase()]);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    const affiliate = await db.get(`
+      SELECT a.affiliate_code, a.coupon_code,
+        (SELECT COUNT(*) FROM clicks WHERE affiliate_id = a.id) as total_clicks,
+        (SELECT COUNT(*) FROM signups WHERE affiliate_id = a.id) as total_signups,
+        (SELECT COALESCE(SUM(commission_amount), 0.0) FROM signups WHERE affiliate_id = a.id) as total_commission
+      FROM affiliates a
+      WHERE a.email = ?
+    `, [email.trim().toLowerCase()]);
+
+    const courses = JSON.parse(user.purchased_courses || '[]');
+    res.json({
+      success: true,
+      user: {
+        name: user.name,
+        email: user.email,
+        purchased_courses: courses,
+        referred_by: user.referred_by
+      },
+      affiliate: affiliate ? {
+        affiliate_code: affiliate.affiliate_code,
+        coupon_code: affiliate.coupon_code,
+        total_clicks: Number(affiliate.total_clicks) || 0,
+        total_signups: Number(affiliate.total_signups) || 0,
+        total_commission: Number(affiliate.total_commission) || 0
+      } : null
+    });
+
+  } catch (err) {
+    console.error('Fetch user me error:', err);
+    res.status(500).json({ error: 'Failed to fetch user data.' });
+  }
+});
+
+// GET: Lookup referrer profile by affiliate code or coupon code
+app.get('/api/referrals/lookup', async (req, res) => {
+  const { code } = req.query;
+  if (!code) {
+    return res.status(400).json({ error: 'Code is required.' });
+  }
+
+  try {
+    const affiliate = await db.get(
+      'SELECT * FROM affiliates WHERE affiliate_code = ? OR coupon_code = ?',
+      [code.trim().toUpperCase(), code.trim().toUpperCase()]
+    );
+    
+    if (affiliate) {
+      return res.json({
+        success: true,
+        name: affiliate.name,
+        email: affiliate.email,
+        affiliate_code: affiliate.affiliate_code,
+        coupon_code: affiliate.coupon_code
+      });
+    }
+    res.status(404).json({ error: 'Invalid referral code.' });
+
+  } catch (err) {
+    console.error('Lookup referral error:', err);
+    res.status(500).json({ error: 'Failed to lookup referral.' });
   }
 });
 
