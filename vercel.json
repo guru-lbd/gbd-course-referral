@@ -1,5 +1,7 @@
 {
   "cleanUrls": true,
+  "framework": null,
+  "outputDirectory": "public",
   "rewrites": [
     {
       "source": "/api/:path*",
