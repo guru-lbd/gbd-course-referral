@@ -1,3 +1,13 @@
 {
-  "cleanUrls": true
+  "cleanUrls": true,
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://backend-production-cbce.up.railway.app/api/:path*"
+    },
+    {
+      "source": "/r/:path*",
+      "destination": "https://backend-production-cbce.up.railway.app/r/:path*"
+    }
+  ]
 }
