@@ -1,0 +1,16 @@
+{
+  "name": "lbd-course-affiliate-system",
+  "version": "1.0.0",
+  "description": "Kajabi-style Course Affiliate System",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node scratch/test_affiliate_flow.js"
+  },
+  "dependencies": {
+    "cookie-parser": "^1.4.6",
+    "express": "^4.19.2",
+    "pg": "^8.21.0",
+    "sqlite3": "^5.1.7"
+  }
+}

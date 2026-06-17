@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Affiliation Database | Admin Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div class="app-container">
+    
+    <!-- Top Header -->
+    <header>
+      <div class="logo-section">
+        <h1>LIFE<span style="font-weight: 300;">DESIGN</span> Affiliation Database</h1>
+        <p>Monitor clients, referral links, coupon codes, and commission payouts.</p>
+      </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs" style="margin-bottom: 2rem;">
+      <button class="tab-btn active" id="admin-tab-btn-users" onclick="switchAdminTab('users')">Client Accounts</button>
+      <button class="tab-btn" id="admin-tab-btn-affiliates" onclick="switchAdminTab('affiliates')">Affiliates & Links</button>
+      <button class="tab-btn" id="admin-tab-btn-tree" onclick="switchAdminTab('tree')">Referral Network</button>
+      <button class="tab-btn" id="admin-tab-btn-logs" onclick="switchAdminTab('logs')">Activity Logs</button>
+      <button class="tab-btn" id="admin-tab-btn-settings" onclick="switchAdminTab('settings')">System Controls</button>
+    </nav>
+
+    <!-- Tab Content: Client Accounts -->
+    <div id="admin-tab-users" class="admin-tab-content">
+      <!-- Client Accounts Panel -->
+      <div class="panel">
+        <h2 class="panel-title">Registered Client Accounts (Sign-up Database)</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.2rem;">
+          Complete database containing user profiles, login credentials, and course access.
+        </p>
+
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Client Name</th>
+                <th>Email Address</th>
+                <th>Password</th>
+                <th>Enrolled Courses</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="admin-users-tbody">
+              <!-- Dynamically populated from JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab Content: Affiliates & Links -->
+    <div id="admin-tab-affiliates" class="admin-tab-content" style="display: none;">
+      <!-- Affiliates Table Panel -->
+      <div class="panel">
+        <h2 class="panel-title">Registered Affiliates Database</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.2rem;">
+          Complete database containing generated codes, coupon links, and referral counts for each client.
+        </p>
+
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Client Name</th>
+                <th>Email Address</th>
+                <th>Affiliate Code</th>
+                <th>Coupon Code</th>
+                <th>Referral Link</th>
+                <th>Total Clicks</th>
+                <th>Total Signups</th>
+                <th>Total Commission</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="admin-affiliates-tbody">
+              <!-- Dynamically populated from JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab Content: Activity Logs -->
+    <div id="admin-tab-logs" class="admin-tab-content" style="display: none;">
+      <!-- Clicks & Signups Audit Lists -->
+      <div class="grid-2">
+        <!-- Clicks List -->
+        <div class="panel">
+          <h3 class="panel-title">Recent Click Events</h3>
+          <div class="table-responsive" style="max-height: 250px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Affiliate</th>
+                  <th>Visitor IP</th>
+                  <th>Time Logged</th>
+                </tr>
+              </thead>
+              <tbody id="admin-clicks-tbody">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Signups List -->
+        <div class="panel">
+          <h3 class="panel-title">Recent Attributed Signups</h3>
+          <div class="table-responsive" style="max-height: 250px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Affiliate</th>
+                  <th>Friend Joined</th>
+                  <th>Commission</th>
+                  <th>Time Logged</th>
+                </tr>
+              </thead>
+              <tbody id="admin-signups-tbody">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Real-time Console Log -->
+      <div class="panel">
+        <div class="logger-header">
+          <h2 class="panel-title" style="margin: 0; border: none; padding: 0;">
+            Live Hook Activity Logs
+          </h2>
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <button class="btn btn-secondary btn-sm" onclick="clearEventLogs()">Clear Feed</button>
+            <div class="logger-status">
+              <span class="logger-pulse"></span>
+              <span>Monitoring Active</span>
+            </div>
+          </div>
+        </div>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
+          Serverless hooks printing in real-time as affiliates are registered, links are clicked, and signups are processed:
+        </p>
+        <div class="terminal-box" id="logger-console" style="height: 200px;">
+          <!-- Logs populated dynamically -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab Content: Referral Network -->
+    <div id="admin-tab-tree" class="admin-tab-content" style="display: none;">
+      <div class="panel" style="padding: 1.5rem;">
+        <h2 class="panel-title">Visual Referral Network Tree</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">
+          Drag to pan the network, scroll your mouse wheel to zoom. Click nodes to expand or collapse downline branches.
+        </p>
+
+        <!-- Viewport for Panning and Zooming -->
+        <div class="tree-viewport" id="tree-viewport">
+          <div class="tree-canvas" id="tree-canvas">
+            <div class="tree" id="referral-tree-root">
+              <!-- Dynamically built tree branches -->
+            </div>
+          </div>
+          
+          <!-- Floating Action Control Buttons -->
+          <div class="tree-controls">
+            <button class="control-btn" onclick="adjustZoom(0.1)" title="Zoom In">+</button>
+            <button class="control-btn" onclick="adjustZoom(-0.1)" title="Zoom Out">-</button>
+            <button class="control-btn" onclick="resetPanZoom()" title="Center Tree">⊙</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab Content: System Controls -->
+    <div id="admin-tab-settings" class="admin-tab-content" style="display: none;">
+      <!-- System Configuration Card -->
+      <div class="panel" style="margin-bottom: 2rem;">
+        <h2 class="panel-title">System Settings Configuration</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">
+          Enable or disable features and adjust the referral discount percentage and commission payouts dynamically.
+        </p>
+        
+        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+          <!-- Friend Discount Row -->
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem;">
+            <div>
+              <h4 style="margin: 0; font-weight: 600;">Friend Discount</h4>
+              <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0.25rem 0 0 0;">
+                Provide a discount to new referred users at checkout.
+              </p>
+            </div>
+            <div style="display: flex; align-items: center; gap: 1rem;">
+              <div style="display: flex; align-items: center;">
+                <input type="number" id="settings-discount-percent" class="input-sm" style="width: 70px; margin-right: 0.5rem;" min="0" max="100">%
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="settings-discount-enabled">
+                <span class="slider round"></span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Referral Commission Row -->
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem;">
+            <div>
+              <h4 style="margin: 0; font-weight: 600;">Referral Commission</h4>
+              <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0.25rem 0 0 0;">
+                Reward the referring affiliate with a flat cash commission.
+              </p>
+            </div>
+            <div style="display: flex; align-items: center; gap: 1rem;">
+              <div style="display: flex; align-items: center;">
+                $<input type="number" id="settings-commission-amount" class="input-sm" style="width: 80px; margin-left: 0.5rem;" min="0" step="0.01">
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="settings-commission-enabled">
+                <span class="slider round"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top: 1.5rem; display: flex; gap: 0.5rem;">
+          <button class="btn btn-primary" onclick="saveSystemSettings()">Save Configurations</button>
+          <button class="btn btn-secondary" onclick="loadSystemSettings()">Reset Fields</button>
+        </div>
+      </div>
+
+      <!-- Reset Data controls -->
+      <div class="panel" style="border-color: rgba(255, 23, 68, 0.2); background: rgba(255, 23, 68, 0.01); margin-top: 2rem;">
+        <h4 style="font-weight: 600; color: var(--danger); margin-bottom: 0.5rem;">Danger Zone</h4>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
+          Reset the browser's `localStorage` data tables to a clean, empty configuration to restart simulation testing.
+        </p>
+        <button class="btn btn-danger btn-sm" onclick="resetDatabaseToSeed()">Reset Affiliation Database</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Custom Confirmation / Warning Modal Dialog -->
+  <div id="custom-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-card">
+      <h3 class="modal-title" id="custom-modal-title">Confirm Action</h3>
+      <p id="custom-modal-message" class="modal-body">Are you sure you want to proceed?</p>
+      <div class="modal-actions">
+        <button id="custom-modal-cancel-btn" class="btn btn-secondary btn-sm">Cancel</button>
+        <button id="custom-modal-confirm-btn" class="btn btn-danger btn-sm">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
