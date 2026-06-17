@@ -760,7 +760,7 @@ tbody tr:hover {
 }
 
 .tab-btn.active {
-  color: var(--primary);
+  color: var(--secondary);
   font-weight: 800;
   -webkit-text-stroke: 0.5px currentColor;
   background: var(--bg-secondary);
