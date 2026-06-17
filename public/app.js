@@ -1114,7 +1114,7 @@ function renderAdminAffiliatesTable() {
           <td>${u.email}</td>
           <td><code style="color: var(--primary); font-weight: bold;">${profile.affiliate_code}</code></td>
           <td><code style="color: var(--success); font-weight: bold;">${profile.coupon_code}</code></td>
-          <td><a href="${referralLink}" target="_blank" style="font-size: 0.8rem;">${referralLink}</a></td>
+          <td class="referral-link-cell"><a href="${referralLink}" target="_blank" style="font-size: 0.85rem;">${referralLink}</a></td>
           <td style="font-weight:500;">${clicksCount}</td>
           <td style="font-weight:500;">${signupsCount}</td>
           <td style="font-weight: bold; color: var(--warning);">$${commTotal.toFixed(2)}</td>

@@ -179,7 +179,7 @@ a:hover {
 
 /* Layout Container */
 .app-container {
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 2rem 1.5rem;
 }
@@ -544,6 +544,12 @@ tbody tr {
 
 tbody tr:hover {
   background: rgba(241, 239, 232, 0.04);
+}
+
+.referral-link-cell {
+  word-break: break-all;
+  min-width: 150px;
+  max-width: 250px;
 }
 
 /* Status Badges */
