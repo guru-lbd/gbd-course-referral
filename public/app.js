@@ -102,10 +102,17 @@ async function initDatabase() {
             currentUser.affiliate = userData.affiliate;
             localStorage.setItem('gbd_current_user', JSON.stringify(currentUser));
           } else if (userRes.status === 404) {
-            localStorage.removeItem('gbd_current_user');
-            currentUser = null;
-            if (isClientPage) {
-              location.reload();
+            try {
+              const errData = await userRes.json();
+              if (errData && errData.error === 'User not found.') {
+                localStorage.removeItem('gbd_current_user');
+                currentUser = null;
+                if (isClientPage) {
+                  location.reload();
+                }
+              }
+            } catch (jsonErr) {
+              console.warn('Non-JSON 404 response from users/me (possibly route not ready), skipping logout.');
             }
           }
         }
