@@ -38,8 +38,46 @@ const SEED_REFERRALS = [];
 const SEED_CLICKS = [];
 const SEED_SIGNUPS = [];
 
+function showOptimisticClientPortal() {
+  const session = localStorage.getItem('gbd_current_user');
+  if (session) {
+    try {
+      currentUser = JSON.parse(session);
+      if (currentUser && currentUser.name) {
+        document.getElementById('portal-panel').style.display = 'block';
+        document.getElementById('auth-panel').style.display = 'none';
+        document.getElementById('welcome-message').textContent = `Logged in as: ${currentUser.name}`;
+        
+        // Render initial UI using cached session details
+        renderCoursesCatalog();
+        renderProfile();
+        
+        // Render cart count
+        const cartCountEl = document.getElementById('cart-count');
+        if (cartCountEl) cartCountEl.textContent = cart.length;
+        
+        // Show the active tab (usually courses)
+        switchTab(activeTab);
+      } else {
+        document.getElementById('auth-panel').style.display = 'block';
+        document.getElementById('portal-panel').style.display = 'none';
+      }
+    } catch (e) {
+      console.warn('Optimistic client portal parse error:', e);
+      document.getElementById('auth-panel').style.display = 'block';
+      document.getElementById('portal-panel').style.display = 'none';
+    }
+  } else {
+    document.getElementById('auth-panel').style.display = 'block';
+    document.getElementById('portal-panel').style.display = 'none';
+  }
+}
+
 // Initialize Database and handle async startup
 document.addEventListener('DOMContentLoaded', async () => {
+  if (isClientPage) {
+    showOptimisticClientPortal();
+  }
   await initDatabase();
   if (isClientPage) {
     initClientPortal();
@@ -108,7 +146,9 @@ async function initDatabase() {
                 localStorage.removeItem('gbd_current_user');
                 currentUser = null;
                 if (isClientPage) {
-                  location.reload();
+                  document.getElementById('portal-panel').style.display = 'none';
+                  document.getElementById('auth-panel').style.display = 'block';
+                  showNotification('Your session has expired or your account was deleted.', 'error');
                 }
               }
             } catch (jsonErr) {
