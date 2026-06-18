@@ -269,12 +269,20 @@ function initClientPortal() {
         if (res.ok) {
           const data = await res.json();
           // Cache name and coupon in localStorage
-          localStorage.setItem('gbd_active_referrer_name', data.referrerName);
-          localStorage.setItem('gbd_active_coupon_code', data.couponCode);
+          if (data.referrerName && data.referrerName !== 'undefined') {
+            localStorage.setItem('gbd_active_referrer_name', data.referrerName);
+          }
+          if (data.couponCode && data.couponCode !== 'undefined') {
+            localStorage.setItem('gbd_active_coupon_code', data.couponCode);
+          }
           
           // Show banner
-          document.getElementById('referred-banner').style.display = 'block';
-          document.getElementById('referred-banner-text').innerHTML = `You were referred by <strong>${data.referrerName}</strong>. Apply their coupon code <code>${data.couponCode}</code> at checkout to save 10%!`;
+          const banner = document.getElementById('referred-banner');
+          const bannerText = document.getElementById('referred-banner-text');
+          if (banner && bannerText && data.referrerName && data.couponCode) {
+            banner.style.display = 'block';
+            bannerText.innerHTML = `You were referred by <strong>${data.referrerName}</strong>. Apply their coupon code <code>${data.couponCode}</code> at checkout to save 10%!`;
+          }
         }
       })
       .catch(err => console.warn('Click log API failed:', err));
@@ -323,18 +331,26 @@ function initClientPortal() {
       if (useBackend) {
         const cachedName = localStorage.getItem('gbd_active_referrer_name');
         const cachedCoupon = localStorage.getItem('gbd_active_coupon_code');
-        if (cachedName && cachedCoupon) {
-          document.getElementById('referred-banner').style.display = 'block';
-          document.getElementById('referred-banner-text').innerHTML = `You were referred by <strong>${cachedName}</strong>. Apply their coupon code <code>${cachedCoupon}</code> at checkout to save 10%!`;
+        if (cachedName && cachedName !== 'undefined' && cachedCoupon && cachedCoupon !== 'undefined') {
+          const banner = document.getElementById('referred-banner');
+          const bannerText = document.getElementById('referred-banner-text');
+          if (banner && bannerText) {
+            banner.style.display = 'block';
+            bannerText.innerHTML = `You were referred by <strong>${cachedName}</strong>. Apply their coupon code <code>${cachedCoupon}</code> at checkout to save 10%!`;
+          }
         } else {
           fetch(`/api/referrals/lookup?code=${encodeURIComponent(activeRef)}`)
             .then(res => res.json())
             .then(data => {
-              if (data.success) {
+              if (data.success && data.name && data.coupon_code) {
                 localStorage.setItem('gbd_active_referrer_name', data.name);
                 localStorage.setItem('gbd_active_coupon_code', data.coupon_code);
-                document.getElementById('referred-banner').style.display = 'block';
-                document.getElementById('referred-banner-text').innerHTML = `You were referred by <strong>${data.name}</strong>. Apply their coupon code <code>${data.coupon_code}</code> at checkout to save 10%!`;
+                const banner = document.getElementById('referred-banner');
+                const bannerText = document.getElementById('referred-banner-text');
+                if (banner && bannerText) {
+                  banner.style.display = 'block';
+                  bannerText.innerHTML = `You were referred by <strong>${data.name}</strong>. Apply their coupon code <code>${data.coupon_code}</code> at checkout to save 10%!`;
+                }
               }
             })
             .catch(err => console.warn('Referral lookup failed:', err));
