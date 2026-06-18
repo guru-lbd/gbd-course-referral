@@ -101,6 +101,12 @@ async function initDatabase() {
             currentUser = userData.user;
             currentUser.affiliate = userData.affiliate;
             localStorage.setItem('gbd_current_user', JSON.stringify(currentUser));
+          } else if (userRes.status === 404) {
+            localStorage.removeItem('gbd_current_user');
+            currentUser = null;
+            if (isClientPage) {
+              location.reload();
+            }
           }
         }
       }
@@ -149,6 +155,18 @@ async function initDatabase() {
   signups = JSON.parse(localStorage.getItem('gbd_signups_v4')) || [];
   eventLogs = JSON.parse(localStorage.getItem('gbd_events_v4')) || [];
   systemSettings = JSON.parse(localStorage.getItem('gbd_settings_v4')) || systemSettings;
+
+  // Show offline warning banner if using localStorage fallback
+  if (!useBackend) {
+    const bannerId = 'offline-mode-warning-banner';
+    if (!document.getElementById(bannerId)) {
+      const banner = document.createElement('div');
+      banner.id = bannerId;
+      banner.style.cssText = "background: rgba(192, 57, 43, 0.15); border-bottom: 1.5px solid var(--danger); color: var(--danger); text-align: center; padding: 0.6rem; font-size: 0.8rem; font-weight: bold; width: 100%; position: relative; z-index: 100000; font-family: var(--font-sans);";
+      banner.innerHTML = "⚠️ Running in Local Simulation Mode (Offline Fallback). Data is stored locally in this browser and cannot be shared across different browsers, private tabs, or devices.";
+      document.body.insertBefore(banner, document.body.firstChild);
+    }
+  }
 }
 
 // Write arrays back to localStorage
@@ -257,7 +275,8 @@ function initClientPortal() {
       // Clean query params from URL bar
       window.history.replaceState({}, document.title, window.location.pathname);
     } else {
-      const referrerProfile = referralProfiles.find(r => r.affiliate_code === refCode.toUpperCase());
+      const cleanCode = refCode.toUpperCase().replace(/-OFF$/, '');
+      const referrerProfile = referralProfiles.find(r => r.affiliate_code === cleanCode);
       if (referrerProfile) {
         const referrerUser = users.find(u => u.email === referrerProfile.email);
         const referrerName = referrerUser ? referrerUser.name : 'Unknown User';
@@ -599,7 +618,8 @@ async function handleAuthSubmit() {
 
       let referred_by = null;
       if (referralCode) {
-        const referrerProfile = referralProfiles.find(r => r.affiliate_code.toUpperCase() === referralCode);
+        const cleanCode = referralCode.replace(/-OFF$/, '');
+        const referrerProfile = referralProfiles.find(r => r.affiliate_code.toUpperCase() === cleanCode);
         if (referrerProfile) {
           referred_by = referrerProfile.email.toLowerCase();
           if (referred_by === email.toLowerCase()) {
@@ -1694,6 +1714,7 @@ function renderReferralTree() {
       nodeHtml = `
         <div class="tree-node ${collapsedClass}" onclick="toggleNodeCollapse(event, '${node.email.toLowerCase()}')">
           ${toggleBadge}
+          <div class="node-edit-btn" onclick="initiateNodeMove(event, '${node.email.toLowerCase()}')" title="Move Client">⇄</div>
           <div class="node-name">${node.name}</div>
           <div class="node-email">${node.email}</div>
           <div class="node-meta">
@@ -1733,6 +1754,118 @@ function toggleNodeCollapse(event, email) {
   }
   renderReferralTree();
 }
+
+function getDownlineEmails(email) {
+  const descendants = new Set();
+  function recurse(currentEmail) {
+    const children = users.filter(u => u.referred_by && u.referred_by.toLowerCase() === currentEmail.toLowerCase());
+    children.forEach(child => {
+      if (!descendants.has(child.email.toLowerCase())) {
+        descendants.add(child.email.toLowerCase());
+        recurse(child.email);
+      }
+    });
+  }
+  recurse(email);
+  return Array.from(descendants);
+}
+
+function initiateNodeMove(event, userEmail) {
+  if (event) event.stopPropagation();
+
+  const user = users.find(u => u.email.toLowerCase() === userEmail.toLowerCase());
+  if (!user) return;
+
+  const emailEl = document.getElementById('move-node-email');
+  const selectEl = document.getElementById('move-node-select');
+  const cancelBtn = document.getElementById('move-node-cancel-btn');
+  const confirmBtn = document.getElementById('move-node-confirm-btn');
+  const modal = document.getElementById('move-node-modal');
+
+  if (!modal || !selectEl || !emailEl) return;
+
+  emailEl.textContent = `${user.name} (${user.email})`;
+
+  // Clear select options
+  selectEl.innerHTML = '';
+
+  // 1. Add "None (Move to System Root)"
+  const rootOption = document.createElement('option');
+  rootOption.value = '';
+  rootOption.textContent = 'None (Move to System Root)';
+  selectEl.appendChild(rootOption);
+
+  // 2. Identify ineligible emails (self + descendants)
+  const descendants = getDownlineEmails(userEmail);
+  const ineligibleEmails = new Set(descendants);
+  ineligibleEmails.add(userEmail.toLowerCase());
+
+  // 3. Add other users as options
+  users.forEach(otherUser => {
+    if (!ineligibleEmails.has(otherUser.email.toLowerCase())) {
+      const option = document.createElement('option');
+      option.value = otherUser.email;
+      // Pre-select if it's the current referred_by
+      if (user.referred_by && user.referred_by.toLowerCase() === otherUser.email.toLowerCase()) {
+        option.selected = true;
+      }
+      option.textContent = `${otherUser.name} (${otherUser.email})`;
+      selectEl.appendChild(option);
+    }
+  });
+
+  modal.style.display = 'flex';
+
+  confirmBtn.onclick = async () => {
+    const newReferrer = selectEl.value;
+    modal.style.display = 'none';
+    await updateNodeReferrer(userEmail, newReferrer);
+  };
+
+  cancelBtn.onclick = () => {
+    modal.style.display = 'none';
+  };
+}
+
+async function updateNodeReferrer(email, newReferrer) {
+  try {
+    const res = await fetch(`/api/admin/user/${encodeURIComponent(email)}/referrer`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ referred_by: newReferrer || null })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to update referrer');
+
+    showNotification(data.message || 'Client referrer updated successfully.', 'success');
+    await initDatabase();
+    await loadAdminPortalData();
+    if (activeAdminTab === 'tree') {
+      renderReferralTree();
+    }
+  } catch (err) {
+    console.warn('API error, trying LocalStorage fallback:', err.message);
+
+    // Fallback logic
+    const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+    if (user) {
+      const oldReferrer = user.referred_by;
+      user.referred_by = newReferrer || null;
+      saveDatabase();
+      logSystemEvent('ClientReferrerUpdated', {
+        email: email.toLowerCase(),
+        old_referred_by: oldReferrer,
+        new_referred_by: newReferrer || null
+      });
+      showNotification('Client referrer updated (Local).', 'success');
+      loadAdminPortalData();
+      if (activeAdminTab === 'tree') {
+        renderReferralTree();
+      }
+    }
+  }
+}
+
 
 /* ==========================================================================
    PAN & ZOOM CANVAS LOGIC

@@ -63,9 +63,10 @@ app.post('/api/auth/register', async (req, res) => {
 
     let referred_by = null;
     if (referralCode) {
+      const cleanCode = referralCode.trim().toUpperCase().replace(/-OFF$/, '');
       const referrerAffiliate = await db.get(
         'SELECT email FROM affiliates WHERE affiliate_code = ?',
-        [referralCode.trim().toUpperCase()]
+        [cleanCode]
       );
       if (referrerAffiliate) {
         referred_by = referrerAffiliate.email.trim().toLowerCase();
@@ -257,13 +258,14 @@ app.post('/api/clicks/log', async (req, res) => {
   }
 
   try {
-    const affiliate = await db.get('SELECT * FROM affiliates WHERE affiliate_code = ?', [affiliateCode.toUpperCase()]);
+    const cleanCode = affiliateCode.toUpperCase().replace(/-OFF$/, '');
+    const affiliate = await db.get('SELECT * FROM affiliates WHERE affiliate_code = ?', [cleanCode]);
     if (affiliate) {
       const ipAddress = ip || 'Simulated Visitor';
       await db.run('INSERT INTO clicks (affiliate_id, ip_address) VALUES (?, ?)', [affiliate.id, ipAddress]);
       
       await db.logEvent('ClickCreated', {
-        affiliate_code: affiliateCode.toUpperCase(),
+        affiliate_code: cleanCode,
         affiliate_name: affiliate.name,
         ip: ipAddress
       });
@@ -513,6 +515,73 @@ app.put('/api/admin/user/:email', async (req, res) => {
     res.status(500).json({ error: 'Failed to update client account.' });
   }
 });
+
+// PUT: Rearrange/move client node in tree (change referrer)
+app.put('/api/admin/user/:email/referrer', async (req, res) => {
+  const { email } = req.params;
+  const { referred_by } = req.body; // Can be a string email, or empty/null to remove referrer
+
+  const targetEmail = email.trim().toLowerCase();
+  const newReferrer = referred_by ? referred_by.trim().toLowerCase() : null;
+
+  try {
+    // 1. Verify user exists
+    const user = await db.get('SELECT * FROM users WHERE email = ?', [targetEmail]);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    if (newReferrer) {
+      // 2. Verify new referrer exists
+      const referrer = await db.get('SELECT * FROM users WHERE email = ?', [newReferrer]);
+      if (!referrer) {
+        return res.status(400).json({ error: 'Selected referrer user does not exist.' });
+      }
+
+      // 3. Prevent self-referral
+      if (targetEmail === newReferrer) {
+        return res.status(400).json({ error: 'A client cannot refer themselves.' });
+      }
+
+      // 4. Cycle prevention (ensure newReferrer is not already in the target user's downline)
+      const usersList = await db.all('SELECT email, referred_by FROM users');
+      const userMap = {};
+      usersList.forEach(u => {
+        userMap[u.email.toLowerCase()] = u.referred_by ? u.referred_by.toLowerCase() : null;
+      });
+
+      let current = newReferrer;
+      const visited = new Set();
+      while (current) {
+        if (current === targetEmail) {
+          return res.status(400).json({ error: 'Circular reference detected: cannot move a client under their own downline.' });
+        }
+        if (visited.has(current)) {
+          break; // Avoid infinite loop in case of existing cycles
+        }
+        visited.add(current);
+        current = userMap[current] || null;
+      }
+    }
+
+    // 5. Update user referred_by
+    const oldReferrer = user.referred_by;
+    await db.run('UPDATE users SET referred_by = ? WHERE email = ?', [newReferrer, targetEmail]);
+
+    await db.logEvent('ClientReferrerUpdated', {
+      email: targetEmail,
+      old_referred_by: oldReferrer,
+      new_referred_by: newReferrer
+    });
+
+    res.json({ success: true, message: 'Client referrer updated successfully.' });
+
+  } catch (err) {
+    console.error('Update referrer error:', err);
+    res.status(500).json({ error: 'Failed to update client referrer.' });
+  }
+});
+
 
 // PUT: Edit affiliate profile codes
 app.put('/api/admin/affiliate/:code', async (req, res) => {
