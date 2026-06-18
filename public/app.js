@@ -635,6 +635,11 @@ async function handleAuthSubmit() {
     return;
   }
 
+  const submitBtn = document.getElementById('btn-auth-submit');
+  const originalText = submitBtn.textContent;
+  submitBtn.disabled = true;
+  submitBtn.textContent = authMode === 'login' ? 'Signing In...' : 'Registering...';
+
   try {
     if (authMode === 'login') {
       const res = await fetch('/api/auth/login', {
@@ -678,8 +683,8 @@ async function handleAuthSubmit() {
       }
       switchTab('courses');
     }
-    // Reload state from server
-    await initDatabase();
+    // Reload database arrays in the background asynchronously
+    initDatabase();
   } catch (apiErr) {
     console.warn('Auth API error, trying LocalStorage fallback:', apiErr.message);
 
@@ -790,6 +795,9 @@ async function handleAuthSubmit() {
 
       switchTab('courses');
     }
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = originalText;
   }
 }
 // Log out active session
