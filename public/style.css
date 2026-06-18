@@ -514,7 +514,7 @@ header {
 
 .cookie-item span:last-child {
   font-family: var(--font-mono);
-  color: var(--primary);
+  color: var(--secondary);
   font-weight: 600;
 }
 
@@ -1061,7 +1061,7 @@ tbody tr:hover {
 .tree-node .node-code {
   font-weight: 800;
   -webkit-text-stroke: 0.4px currentColor;
-  color: var(--primary);
+  color: var(--secondary);
 }
 
 .tree-node .node-commission {
@@ -1074,9 +1074,9 @@ tbody tr:hover {
   position: absolute;
   top: -8px;
   right: -8px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  color: var(--primary);
+  background: var(--secondary-glow);
+  border: 1px solid var(--secondary);
+  color: var(--secondary);
   width: 16px;
   height: 16px;
   border-radius: 50%;

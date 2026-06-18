@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>LBDA | Client Portal</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=1.2">
 </head>
 <body>
 
@@ -103,12 +103,6 @@
       <div id="notification-banner" class="panel" style="display: none; padding: 1rem 1.5rem; margin-bottom: 1.5rem; border: 1px solid var(--border-color); border-radius: 8px; font-weight: 500; font-family: var(--font-sans); transition: all 0.3s ease; opacity: 0; align-items: center; gap: 0.75rem;">
         <span id="notification-icon" style="font-size: 1.2rem;"></span>
         <span id="notification-message"></span>
-      </div>
-
-      <!-- Active Referral Greeting Banner (shown if friend visited via referral link) -->
-      <div id="referred-banner" class="panel" style="display: none; border-color: var(--success); background: rgba(46, 125, 50, 0.02); padding: 1rem 2rem; margin-bottom: 2rem;">
-        <span class="text-success" style="font-weight: 700; font-family: var(--font-sans); display: block;">Special Referral Discount Activated!</span>
-        <span style="font-size: 0.9rem;" id="referred-banner-text">You were referred by a friend. Check out with their coupon code to save!</span>
       </div>
 
       <!-- TAB: COURSES CATALOG -->
@@ -222,9 +216,14 @@
         </div>
       </div>
 
-      <!-- TAB: SHOPPING CART -->
       <div id="tab-cart" class="tab-content" style="display: none;">
         <h2 style="font-family: var(--font-sans); font-weight: 700; margin-bottom: 1.5rem;">Your Shopping Cart</h2>
+        
+        <!-- Active Referral Greeting Banner (shown if friend visited via referral link) -->
+        <div id="referred-banner" class="panel" style="display: none; border-color: var(--success); background: rgba(46, 125, 50, 0.02); padding: 1rem 2rem; margin-bottom: 2rem;">
+          <span class="text-success" style="font-weight: 700; font-family: var(--font-sans); display: block;">Special Referral Discount Activated!</span>
+          <span style="font-size: 0.9rem;" id="referred-banner-text">You were referred by a friend. Check out with their coupon code to save!</span>
+        </div>
         
         <div class="grid-2">
           
@@ -253,7 +252,7 @@
             </div>
             <div class="cookie-item" style="border: none; font-size: 1.1rem; font-weight: bold; padding: 1rem 0;">
               <span>Total Price:</span>
-              <span id="cart-summary-total" style="color: var(--primary);">₹0.00</span>
+              <span id="cart-summary-total" style="color: var(--secondary);">₹0.00</span>
             </div>
 
             <button class="btn btn-success" style="width: 100%; margin-top: 1rem;" id="btn-checkout" onclick="checkoutCart()">
@@ -317,7 +316,7 @@
             </div>
             <div class="cookie-item" style="padding: 0.6rem 0;">
               <span>Unique Code:</span>
-              <span id="profile-code" style="font-weight: bold; color: var(--primary);"></span>
+              <span id="profile-code" style="font-weight: bold; color: var(--secondary);"></span>
             </div>
             
             <div class="cookie-indicator mt-3" style="background: rgba(46, 125, 50, 0.05); border-color: rgba(46,125,50,0.15);">
@@ -367,6 +366,6 @@
 
   </div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=1.2"></script>
 </body>
 </html>
