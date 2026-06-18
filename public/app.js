@@ -40,6 +40,9 @@ const SEED_SIGNUPS = [];
 
 function showOptimisticClientPortal() {
   const session = localStorage.getItem('gbd_current_user');
+  const urlParams = new URLSearchParams(window.location.search);
+  const refCode = urlParams.get('ref');
+
   if (session) {
     try {
       currentUser = JSON.parse(session);
@@ -61,15 +64,30 @@ function showOptimisticClientPortal() {
       } else {
         document.getElementById('auth-panel').style.display = 'block';
         document.getElementById('portal-panel').style.display = 'none';
+        if (refCode) {
+          toggleAuthMode('register');
+        } else {
+          toggleAuthMode('login');
+        }
       }
     } catch (e) {
       console.warn('Optimistic client portal parse error:', e);
       document.getElementById('auth-panel').style.display = 'block';
       document.getElementById('portal-panel').style.display = 'none';
+      if (refCode) {
+        toggleAuthMode('register');
+      } else {
+        toggleAuthMode('login');
+      }
     }
   } else {
     document.getElementById('auth-panel').style.display = 'block';
     document.getElementById('portal-panel').style.display = 'none';
+    if (refCode) {
+      toggleAuthMode('register');
+    } else {
+      toggleAuthMode('login');
+    }
   }
 }
 
@@ -148,6 +166,7 @@ async function initDatabase() {
                 if (isClientPage) {
                   document.getElementById('portal-panel').style.display = 'none';
                   document.getElementById('auth-panel').style.display = 'block';
+                  toggleAuthMode('login');
                   showNotification('Your session has expired or your account was deleted.', 'error');
                 }
               }
@@ -464,6 +483,12 @@ function initClientPortal() {
     switchTab('courses');
   } else {
     document.getElementById('auth-panel').style.display = 'block';
+    document.getElementById('portal-panel').style.display = 'none';
+    if (refCode) {
+      toggleAuthMode('register');
+    } else {
+      toggleAuthMode('login');
+    }
   }
 }
 
@@ -812,13 +837,14 @@ function logoutUser() {
   if (banner) banner.style.display = 'none';
   document.getElementById('portal-panel').style.display = 'none';
   document.getElementById('auth-panel').style.display = 'block';
+  toggleAuthMode('login');
 }
 
 // Switch tabs inside portal
 function switchTab(tabName) {
   activeTab = tabName;
 
-  document.querySelectorAll('.tab-btn').forEach(btn => {
+  document.querySelectorAll('nav.nav-tabs .tab-btn').forEach(btn => {
     btn.classList.remove('active');
   });
   document.getElementById(`menu-btn-${tabName}`).classList.add('active');
