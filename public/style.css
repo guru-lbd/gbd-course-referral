@@ -4,6 +4,20 @@
 
 /* Load custom Walkway font faces */
 @font-face {
+  font-family: 'Walkway-SemiBold';
+  src: url('assets/fonts/Walkway_SemiBold.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Walkway-Black';
+  src: url('assets/fonts/Walkway_Black.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
   font-family: 'Walkway';
   src: url('assets/fonts/Walkway_SemiBold.ttf') format('truetype');
   font-weight: 300;
