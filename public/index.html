@@ -119,65 +119,103 @@
         </div>
         
         <!-- Courses Grid -->
-        <div class="grid-3" id="courses-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 2rem;">
+        <div class="grid-3" id="courses-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 2rem; margin-top: 2rem;">
           
           <!-- Course Card 1 -->
-          <div class="panel course-card" style="padding: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between;">
+          <div class="panel course-card" style="padding: 2rem; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; border-top: 3px solid var(--secondary); border-radius: 8px; position: relative; background: var(--bg-secondary);">
             <div>
-              <div style="height: 180px; background: #2f2b28; position: relative;">
-                <img src="assets/course_python.png" alt="Python Web Masterclass" style="width: 100%; height: 100%; object-fit: cover;">
-                <span class="badge badge-active" style="position: absolute; top: 1rem; right: 1rem; background: var(--primary); color: #fff;">$20.00 Comm</span>
+              <div style="margin-bottom: 1.5rem;">
+                <span style="border: 1px solid var(--secondary); color: var(--secondary); font-size: 0.75rem; letter-spacing: 1.5px; padding: 0.25rem 0.6rem; text-transform: uppercase; font-weight: 700; background: transparent; display: inline-block; border-radius: 2px;">LIVE NOW</span>
               </div>
-              <div style="padding: 1.5rem;">
-                <h3 style="font-family: var(--font-sans); font-weight: 700; margin-bottom: 0.5rem;">Python Web Masterclass</h3>
-                <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5;">
-                  Learn professional backend engineering, web servers, and database integrations with custom Python stacks.
-                </p>
+              <div style="font-size: 0.8rem; color: var(--text-muted); letter-spacing: 2px; text-transform: uppercase; font-weight: 500; margin-bottom: 0.5rem;">STAGE 01 · ENTRY</div>
+              <h2 style="font-family: var(--font-sans); font-size: 2.2rem; font-weight: 300; color: #ffffff; margin-bottom: 2rem; line-height: 1.2;">The Gap</h2>
+              
+              <div style="display: flex; justify-content: space-between; padding: 0.9rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.9rem;">
+                <span style="color: var(--text-muted);">Investment</span>
+                <span style="color: #ffffff; font-weight: 500;">₹10,000 + GST</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; padding: 0.9rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.9rem;">
+                <span style="color: var(--text-muted);">Duration</span>
+                <span style="color: #ffffff; font-weight: 500;">4 hrs</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; padding: 0.9rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; margin-bottom: 2rem;">
+                <span style="color: var(--text-muted);">Schedule</span>
+                <span style="color: #ffffff; font-weight: 500;">Every Saturday</span>
               </div>
             </div>
-            <div style="padding: 1.5rem; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
-              <span style="font-weight: bold; font-size: 1.25rem;">$99.00</span>
-              <button class="btn btn-primary btn-sm" onclick="addToCart(1, 'Python Web Masterclass', 99.00)">Add to Cart</button>
+            
+            <div>
+              <div style="margin-bottom: 1.5rem;">
+                <span style="font-size: 1.8rem; font-weight: 700; color: var(--secondary);">₹10,000</span>
+                <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 0.2rem;">+ GST · per person</span>
+              </div>
+              <button class="btn btn-primary" style="width: 100%;" onclick="addToCart(1, 'The Gap', 10000)">Add to Cart</button>
             </div>
           </div>
 
           <!-- Course Card 2 -->
-          <div class="panel course-card" style="padding: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between;">
+          <div class="panel course-card" style="padding: 2rem; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; border-top: 3px solid var(--border-color); border-radius: 8px; position: relative; background: var(--bg-secondary);">
             <div>
-              <div style="height: 180px; background: #2f2b28; position: relative;">
-                <img src="assets/course_js.png" alt="JavaScript Deep Dive" style="width: 100%; height: 100%; object-fit: cover;">
-                <span class="badge badge-active" style="position: absolute; top: 1rem; right: 1rem; background: var(--primary); color: #fff;">$20.00 Comm</span>
+              <div style="margin-bottom: 1.5rem;">
+                <span style="border: 1px solid var(--border-color); color: var(--text-muted); font-size: 0.75rem; letter-spacing: 1.5px; padding: 0.25rem 0.6rem; text-transform: uppercase; font-weight: 700; background: transparent; display: inline-block; border-radius: 2px;">COMING SOON</span>
               </div>
-              <div style="padding: 1.5rem;">
-                <h3 style="font-family: var(--font-sans); font-weight: 700; margin-bottom: 0.5rem;">JavaScript Deep Dive</h3>
-                <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5;">
-                  Master closures, asynchronous loops, callbacks, and modern ES6+ web engines.
-                </p>
+              <div style="font-size: 0.8rem; color: var(--text-muted); letter-spacing: 2px; text-transform: uppercase; font-weight: 500; margin-bottom: 0.5rem;">STAGE 02 · DEEP DIVE</div>
+              <h2 style="font-family: var(--font-sans); font-size: 2.2rem; font-weight: 300; color: #ffffff; margin-bottom: 2rem; line-height: 1.2;">The Bridge</h2>
+              
+              <div style="display: flex; justify-content: space-between; padding: 0.9rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.9rem;">
+                <span style="color: var(--text-muted);">Investment</span>
+                <span style="color: #ffffff; font-weight: 500;">₹1,00,000 + GST</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; padding: 0.9rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.9rem;">
+                <span style="color: var(--text-muted);">Duration</span>
+                <span style="color: #ffffff; font-weight: 500;">3 months</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; padding: 0.9rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; margin-bottom: 2rem;">
+                <span style="color: var(--text-muted);">Schedule</span>
+                <span style="color: #ffffff; font-weight: 500;">Weekly</span>
               </div>
             </div>
-            <div style="padding: 1.5rem; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
-              <span style="font-weight: bold; font-size: 1.25rem;">$199.00</span>
-              <button class="btn btn-primary btn-sm" onclick="addToCart(2, 'JavaScript Deep Dive', 199.00)">Add to Cart</button>
+            
+            <div>
+              <div style="margin-bottom: 0.5rem;">
+                <span style="font-size: 1.8rem; font-weight: 700; color: var(--secondary);">₹1,00,000</span>
+                <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 0.2rem;">+ GST · per person</span>
+              </div>
+              <div style="font-size: 0.8rem; color: var(--text-muted); font-style: italic; margin-bottom: 1rem;">Available to Gap graduates only</div>
+              <button class="btn btn-primary" style="width: 100%;" onclick="addToCart(2, 'The Bridge', 100000)">Add to Cart</button>
             </div>
           </div>
 
           <!-- Course Card 3 -->
-          <div class="panel course-card" style="padding: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between;">
+          <div class="panel course-card" style="padding: 2rem; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; border-top: 3px solid var(--border-color); border-radius: 8px; position: relative; background: var(--bg-secondary);">
             <div>
-              <div style="height: 180px; background: #2f2b28; position: relative;">
-                <img src="assets/course_community.png" alt="Divine Creator Community" style="width: 100%; height: 100%; object-fit: cover;">
-                <span class="badge badge-active" style="position: absolute; top: 1rem; right: 1rem; background: var(--primary); color: #fff;">$20.00 Comm</span>
+              <div style="margin-bottom: 1.5rem;">
+                <span style="border: 1px solid var(--border-color); color: var(--text-muted); font-size: 0.75rem; letter-spacing: 1.5px; padding: 0.25rem 0.6rem; text-transform: uppercase; font-weight: 700; background: transparent; display: inline-block; border-radius: 2px;">COMING SOON</span>
               </div>
-              <div style="padding: 1.5rem;">
-                <h3 style="font-family: var(--font-sans); font-weight: 700; margin-bottom: 0.5rem;">Divine Creator Community</h3>
-                <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5;">
-                  Unlock access to the mastermind coaching community, monthly mastermind calls, and creator tools.
-                </p>
+              <div style="font-size: 0.8rem; color: var(--text-muted); letter-spacing: 2px; text-transform: uppercase; font-weight: 500; margin-bottom: 0.5rem;">STAGE 03 · MASTERY</div>
+              <h2 style="font-family: var(--font-sans); font-size: 2.2rem; font-weight: 300; color: #ffffff; margin-bottom: 2rem; line-height: 1.2;">The Journey</h2>
+              
+              <div style="display: flex; justify-content: space-between; padding: 0.9rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.9rem;">
+                <span style="color: var(--text-muted);">Investment</span>
+                <span style="color: #ffffff; font-weight: 500;">₹5,00,000 + GST</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; padding: 0.9rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.9rem;">
+                <span style="color: var(--text-muted);">Duration</span>
+                <span style="color: #ffffff; font-weight: 500;">1 year</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; padding: 0.9rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; margin-bottom: 2rem;">
+                <span style="color: var(--text-muted);">Schedule</span>
+                <span style="color: #ffffff; font-weight: 500;">Membership</span>
               </div>
             </div>
-            <div style="padding: 1.5rem; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
-              <span style="font-weight: bold; font-size: 1.25rem;">$29.00</span>
-              <button class="btn btn-primary btn-sm" onclick="addToCart(3, 'Divine Creator Community', 29.00)">Add to Cart</button>
+            
+            <div>
+              <div style="margin-bottom: 0.5rem;">
+                <span style="font-size: 1.8rem; font-weight: 700; color: var(--secondary);">₹5,00,000</span>
+                <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 0.2rem;">+ GST · per person</span>
+              </div>
+              <div style="font-size: 0.8rem; color: var(--text-muted); font-style: italic; margin-bottom: 1rem;">Available to Bridge graduates only</div>
+              <button class="btn btn-primary" style="width: 100%;" onclick="addToCart(3, 'The Journey', 500000)">Add to Cart</button>
             </div>
           </div>
 

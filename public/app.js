@@ -710,14 +710,18 @@ function renderCoursesCatalog() {
   document.querySelectorAll('.course-card').forEach((card, index) => {
     const courseId = index + 1;
     const btn = card.querySelector('button');
-    if (enrolledCourses.includes(courseId)) {
-      btn.textContent = '✓ Enrolled';
-      btn.disabled = true;
-      btn.className = 'btn btn-secondary btn-sm';
-    } else {
-      btn.textContent = 'Add to Cart';
-      btn.disabled = false;
-      btn.className = 'btn btn-primary btn-sm';
+    if (btn) {
+      if (enrolledCourses.includes(courseId)) {
+        btn.textContent = '✓ Enrolled';
+        btn.disabled = true;
+        btn.className = 'btn btn-secondary';
+        btn.style.width = '100%';
+      } else {
+        btn.textContent = 'Add to Cart';
+        btn.disabled = false;
+        btn.className = 'btn btn-primary';
+        btn.style.width = '100%';
+      }
     }
   });
 }
@@ -731,7 +735,8 @@ function addToCart(id, title, price) {
       const btn = card.querySelector('button');
       if (btn) {
         btn.textContent = 'Already in Cart!';
-        btn.className = 'btn btn-secondary btn-sm';
+        btn.className = 'btn btn-secondary';
+        btn.style.width = '100%';
         btn.disabled = true;
         setTimeout(() => {
           renderCoursesCatalog();
@@ -752,7 +757,8 @@ function addToCart(id, title, price) {
     const btn = card.querySelector('button');
     if (btn) {
       btn.textContent = '✓ Added!';
-      btn.className = 'btn btn-success btn-sm';
+      btn.className = 'btn btn-success';
+      btn.style.width = '100%';
       btn.disabled = true;
       setTimeout(() => {
         renderCoursesCatalog();
@@ -779,8 +785,8 @@ function renderCart() {
 
   if (cart.length === 0) {
     container.innerHTML = `<div class="cookie-empty" style="text-align: center; padding: 2rem;">Your cart is empty. Browse courses to add items.</div>`;
-    subtotalEl.textContent = '$0.00';
-    totalEl.textContent = '$0.00';
+    subtotalEl.textContent = '₹0.00';
+    totalEl.textContent = '₹0.00';
     discountRow.style.display = 'none';
     if (checkoutBtn) checkoutBtn.disabled = true;
     return;
@@ -794,14 +800,14 @@ function renderCart() {
       <div class="cart-item">
         <div class="cart-item-info">
           <h4>${item.title}</h4>
-          <span>Price: $${item.price.toFixed(2)}</span>
+          <span>Price: ₹${item.price.toLocaleString('en-IN')}</span>
         </div>
         <button class="btn btn-danger btn-sm" onclick="removeFromCart(${item.id})">Remove</button>
       </div>
     `;
   });
 
-  subtotalEl.textContent = `$${subtotal.toFixed(2)}`;
+  subtotalEl.textContent = `₹${subtotal.toLocaleString('en-IN')}`;
 
   // Calculate discount dynamically based on referred_by and systemSettings
   let discount = 0;
@@ -815,13 +821,13 @@ function renderCart() {
     if (labelEl) labelEl.textContent = `Referral Discount (${percent}%):`;
     
     discountRow.style.display = 'flex';
-    discountEl.textContent = `-$${discount.toFixed(2)}`;
+    discountEl.textContent = `-₹${discount.toLocaleString('en-IN')}`;
   } else {
     discountRow.style.display = 'none';
   }
 
   const total = subtotal - discount;
-  totalEl.textContent = `$${total.toFixed(2)}`;
+  totalEl.textContent = `₹${total.toLocaleString('en-IN')}`;
 }
 
 // Apply typed coupon code manually
@@ -1012,7 +1018,7 @@ function renderReferralKit() {
   const textEl = document.querySelector('#tab-referral p');
   if (textEl) {
     const disc = systemSettings.friend_discount_enabled ? `${systemSettings.friend_discount_percent}%` : '0%';
-    const comm = systemSettings.commission_enabled ? `$${parseFloat(systemSettings.commission_amount).toFixed(2)}` : '$0.00';
+    const comm = systemSettings.commission_enabled ? `₹${parseFloat(systemSettings.commission_amount).toLocaleString('en-IN')}` : '₹0';
     textEl.innerHTML = `Copy your links below to share with friends. When they sign up using your link or code, they save <strong>${disc}</strong> on checkout, and you earn <strong>${comm} cash</strong>!`;
   }
 }
@@ -1048,7 +1054,7 @@ function renderProfile() {
   const referralsCount = useBackend ? (profile.total_signups || 0) : (profile.referrals_count || 0);
   
   document.getElementById('profile-referred-count').textContent = referralsCount;
-  document.getElementById('profile-earnings').textContent = `$${earnings.toFixed(2)}`;
+  document.getElementById('profile-earnings').textContent = `₹${earnings.toLocaleString('en-IN')}`;
 
   // List purchased courses
   const tbody = document.getElementById('profile-purchased-tbody');
@@ -1061,9 +1067,9 @@ function renderProfile() {
   }
 
   const coursesMapping = {
-    1: 'Python Web Masterclass',
-    2: 'JavaScript Deep Dive',
-    3: 'Divine Creator Community'
+    1: 'The Gap',
+    2: 'The Bridge',
+    3: 'The Journey'
   };
 
   list.forEach(cid => {
