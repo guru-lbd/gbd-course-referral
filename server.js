@@ -338,9 +338,10 @@ app.get('/api/referrals/lookup', async (req, res) => {
   }
 
   try {
+    const searchCode = code.trim();
     const affiliate = await db.get(
-      'SELECT * FROM affiliates WHERE affiliate_code = ? OR coupon_code = ?',
-      [code.trim().toUpperCase(), code.trim().toUpperCase()]
+      'SELECT * FROM affiliates WHERE affiliate_code = ? OR coupon_code = ? OR LOWER(email) = ?',
+      [searchCode.toUpperCase(), searchCode.toUpperCase(), searchCode.toLowerCase()]
     );
     
     if (affiliate) {
