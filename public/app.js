@@ -467,9 +467,9 @@ function showNotification(message, type = 'success') {
     banner.style.color = 'var(--danger)';
   } else {
     iconEl.textContent = 'ℹ️';
-    banner.style.backgroundColor = 'rgba(75, 46, 43, 0.05)';
-    banner.style.borderColor = 'rgba(75, 46, 43, 0.25)';
-    banner.style.color = 'var(--primary)';
+    banner.style.backgroundColor = 'rgba(198, 162, 104, 0.05)';
+    banner.style.borderColor = 'rgba(198, 162, 104, 0.25)';
+    banner.style.color = 'var(--secondary)';
   }
   
   msgEl.textContent = message;
@@ -1249,7 +1249,7 @@ function renderAdminUsersTable() {
         <tr>
           <td style="font-weight: 600; color: var(--text-main);">${u.name}</td>
           <td>${u.email}</td>
-          <td><code style="color: var(--primary);">${u.password}</code></td>
+          <td><code style="color: var(--secondary);">${u.password}</code></td>
           <td style="color: var(--text-muted); font-size: 0.9rem;">${courseNames}</td>
           <td>
             <div style="display: flex; gap: 0.5rem;">
@@ -1326,7 +1326,7 @@ function renderAdminAffiliatesTable() {
         <tr>
           <td style="font-weight: 600; color: var(--text-main);">${u.name}</td>
           <td>${u.email}</td>
-          <td><code style="color: var(--primary); font-weight: bold;">${profile.affiliate_code}</code></td>
+          <td><code style="color: var(--secondary); font-weight: bold;">${profile.affiliate_code}</code></td>
           <td><code style="color: var(--success); font-weight: bold;">${profile.coupon_code}</code></td>
           <td class="referral-link-cell"><a href="${referralLink}" target="_blank" style="font-size: 0.85rem;">${referralLink}</a></td>
           <td style="font-weight:500;">${clicksCount}</td>

@@ -180,7 +180,7 @@ body {
 }
 
 a {
-  color: var(--primary);
+  color: var(--secondary);
   text-decoration: none;
   font-weight: 700;
   letter-spacing: 0.2px;
@@ -188,7 +188,7 @@ a {
 }
 
 a:hover {
-  color: var(--secondary);
+  color: var(--text-main);
 }
 
 /* Layout Container */
@@ -302,7 +302,7 @@ header {
 }
 
 .panel-title span {
-  color: var(--primary);
+  color: var(--secondary);
 }
 
 /* Grid Layouts */
@@ -668,7 +668,7 @@ tbody tr:hover {
 }
 
 .log-time {
-  color: var(--primary);
+  color: var(--secondary);
   margin-right: 0.5rem;
 }
 
@@ -683,7 +683,7 @@ tbody tr:hover {
 
 .log-tag-click { background: var(--warning-glow); color: var(--warning); border: 1px solid rgba(198, 162, 104, 0.15); }
 .log-tag-order { background: var(--success-glow); color: var(--success); border: 1px solid rgba(79, 90, 69, 0.15); }
-.log-tag-cookie { background: var(--primary-glow); color: var(--primary); border: 1px solid rgba(75, 46, 43, 0.15); }
+.log-tag-cookie { background: var(--secondary-glow); color: var(--secondary); border: 1px solid rgba(198, 162, 104, 0.15); }
 .log-tag-system { background: var(--info-glow); color: var(--text-muted); border: 1px solid rgba(138, 138, 138, 0.15); }
 
 .log-body {
@@ -916,9 +916,9 @@ tbody tr:hover {
 }
 
 .control-btn:hover {
-  border-color: var(--primary);
-  color: var(--primary);
-  box-shadow: 0 0 8px var(--primary-glow);
+  border-color: var(--secondary);
+  color: var(--secondary);
+  box-shadow: 0 0 8px var(--secondary-glow);
 }
 
 /* Vertical Org Tree Structure */
@@ -1008,19 +1008,19 @@ tbody tr:hover {
 }
 
 .tree-node:hover {
-  border-color: var(--primary);
-  box-shadow: 0 0 12px var(--primary-glow);
+  border-color: var(--secondary);
+  box-shadow: 0 0 12px var(--secondary-glow);
   transform: translateY(-2px);
 }
 
 /* Special Node States */
 .tree-node.system-node {
-  border-color: var(--primary);
+  border-color: var(--secondary);
   background: rgba(201, 168, 76, 0.05);
 }
 
 .tree-node.root-node {
-  border: 1.5px solid var(--primary);
+  border: 1.5px solid var(--secondary);
 }
 
 .tree-node.collapsed {
