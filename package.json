@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node scratch/test_affiliate_flow.js"
+    "test": "node scratch/run_all_tests.js"
   },
   "dependencies": {
     "cookie-parser": "^1.4.6",

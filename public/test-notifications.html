@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>LBDA Test Page - Notifications Queue & Broadcasting</title>
+  <style>
+    body { font-family: monospace; padding: 20px; max-width: 900px; margin: 0 auto; background: #fafafa; }
+    h1 { border-bottom: 2px solid #333; padding-bottom: 5px; }
+    .row { display: flex; gap: 20px; }
+    .col-6 { flex: 1; min-width: 0; }
+    .card { background: #fff; border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 4px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 12px; }
+    th { background: #eee; }
+    input, select, textarea, button { padding: 6px; font-family: monospace; margin: 4px 0; width: 100%; box-sizing: border-box; }
+    button { background: #333; color: white; border: none; cursor: pointer; font-weight: bold; }
+    button:hover { background: #555; }
+    .btn-green { background: #28a745; }
+    .btn-green:hover { background: #218838; }
+    .badge { display: inline-block; padding: 2px 5px; border-radius: 3px; font-size: 10px; font-weight: bold; color: white; }
+    .badge-sent { background: #28a745; }
+    .badge-pending { background: #ffc107; color: black; }
+    .badge-failed { background: #dc3545; }
+    .log-panel { background: #000; color: #0f0; padding: 12px; font-size: 12px; max-height: 150px; overflow-y: auto; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>LBDA Notification Engine & Broadcast Bench</h1>
+
+  <div class="row">
+    <!-- Broadcast Panel -->
+    <div class="col-6">
+      <div class="card">
+        <h3>1. Send Broadcast Notification</h3>
+        <label>Target Group:</label>
+        <select id="target-select" onchange="adjustTargetView()">
+          <option value="all">All Users</option>
+          <option value="batch">Specific Batch</option>
+          <option value="single">Single User</option>
+        </select>
+
+        <div id="batch-target-row" style="display:none;">
+          <label>Select Batch:</label>
+          <select id="batch-select"></select>
+        </div>
+
+        <div id="user-target-row" style="display:none;">
+          <label>Select User:</label>
+          <select id="user-select"></select>
+        </div>
+
+        <label>Channel:</label>
+        <select id="channel-select">
+          <option value="EMAIL">Email</option>
+          <option value="WHATSAPP">WhatsApp</option>
+          <option value="WEBSITE">Website Alert</option>
+        </select>
+
+        <label>Subject (Optional):</label>
+        <input type="text" id="subject" placeholder="e.g. Schedule Update">
+
+        <label>Message Content:</label>
+        <textarea id="message" rows="3" placeholder="Enter message here..."></textarea>
+
+        <div style="margin: 8px 0;">
+          <input type="checkbox" id="send-now" checked style="width: auto;"> <label for="send-now"><strong>Send Now</strong> (Simulate immediate delivery)</label>
+        </div>
+
+        <button onclick="sendBroadcast()">Broadcast Message</button>
+      </div>
+    </div>
+
+    <!-- Scheduled Reminder Simulator -->
+    <div class="col-6">
+      <div class="card">
+        <h3>2. Schedule Reminders Simulator</h3>
+        <p>Set a batch masterclass date to **exactly 24 hours** from now to test automated reminders:</p>
+        <button class="btn-green" onclick="setTestBatchDate()">1. Set Batch 3 Masterclass to Tomorrow</button>
+        <p style="margin-top: 15px;">Scan upcoming events and queue reminders:</p>
+        <button onclick="triggerReminderCheck()">2. Run Scanner (API /api/admin/notifications/check-reminders)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Live Queue Card -->
+  <div class="card">
+    <h3>3. Live Notifications Queue (Last 50 Messages)</h3>
+    <table id="queue-table">
+      <thead>
+        <tr>
+          <th>User</th>
+          <th>Channel</th>
+          <th>Subject</th>
+          <th>Message</th>
+          <th>Status</th>
+          <th>Scheduled At</th>
+          <th>Sent At</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td colspan="7">Loading queue...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Logs -->
+  <h3>System Logs</h3>
+  <div class="log-panel" id="log-panel">Ready.</div>
+
+  <script>
+    function log(message, isError = false) {
+      const panel = document.getElementById('log-panel');
+      const time = new Date().toLocaleTimeString();
+      const style = isError ? 'color: #ff3333;' : '';
+      panel.innerHTML += `<div style="${style}">[${time}] ${message}</div>`;
+      panel.scrollTop = panel.scrollHeight;
+    }
+
+    function adjustTargetView() {
+      const target = document.getElementById('target-select').value;
+      document.getElementById('batch-target-row').style.display = target === 'batch' ? 'block' : 'none';
+      document.getElementById('user-target-row').style.display = target === 'single' ? 'block' : 'none';
+    }
+
+    async function loadData() {
+      try {
+        const res = await fetch('/api/admin/data');
+        const data = await res.json();
+
+        // Populate users dropdown
+        const userSelect = document.getElementById('user-select');
+        userSelect.innerHTML = '';
+        data.users.forEach(u => {
+          userSelect.innerHTML += `<option value="${u.id}">${u.name} (${u.email})</option>`;
+        });
+
+        // Populate batches dropdown
+        const batchSelect = document.getElementById('batch-select');
+        batchSelect.innerHTML = '';
+        data.batches.forEach(b => {
+          batchSelect.innerHTML += `<option value="${b.id}">${b.name} (${b.code})</option>`;
+        });
+
+        // Populate Queue Table
+        const tbody = document.querySelector('#queue-table tbody');
+        tbody.innerHTML = '';
+        if (data.notifications.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7">Queue is empty.</td></tr>';
+        } else {
+          data.notifications.forEach(n => {
+            const statusBadge = n.status === 'SENT' ? '<span class="badge badge-sent">Sent</span>' : `<span class="badge badge-pending">${n.status}</span>`;
+            tbody.innerHTML += `
+              <tr>
+                <td><strong>${n.user_name || 'N/A'}</strong></td>
+                <td>${n.channel}</td>
+                <td>${n.subject || 'N/A'}</td>
+                <td>${n.message}</td>
+                <td>${statusBadge}</td>
+                <td>${n.scheduled_at ? new Date(n.scheduled_at).toLocaleString() : 'N/A'}</td>
+                <td>${n.sent_at ? new Date(n.sent_at).toLocaleString() : 'Pending'}</td>
+              </tr>
+            `;
+          });
+        }
+      } catch (err) {
+        log('Failed loading queue: ' + err.message, true);
+      }
+    }
+
+    async function sendBroadcast() {
+      const target = document.getElementById('target-select').value;
+      const userId = document.getElementById('user-select').value;
+      const batchId = document.getElementById('batch-select').value;
+      const channel = document.getElementById('channel-select').value;
+      const subject = document.getElementById('subject').value;
+      const message = document.getElementById('message').value;
+      const sendNow = document.getElementById('send-now').checked;
+
+      if (!message) {
+        alert('Message content is required!');
+        return;
+      }
+
+      log(`Sending broadcast to target group: ${target}...`);
+
+      try {
+        const res = await fetch('/api/admin/send-notification', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, batchId, target, channel, subject, message, sendNow })
+        });
+        const data = await res.json();
+        if (data.success) {
+          log(data.message);
+          document.getElementById('message').value = '';
+          document.getElementById('subject').value = '';
+          await loadData();
+        } else {
+          log('Broadcast failed: ' + data.error, true);
+        }
+      } catch (err) {
+        log('Broadcast request error: ' + err.message, true);
+      }
+    }
+
+    async function setTestBatchDate() {
+      // Calculate exactly tomorrow's date
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      // Format as YYYY-MM-DD
+      const dateStr = tomorrow.toISOString().split('T')[0];
+      
+      log(`Setting Batch 3 (SS_CERTIFIED) Masterclass date to tomorrow: ${dateStr}...`);
+      
+      try {
+        const res = await fetch('/api/batches');
+        const batchData = await res.json();
+        const batch3 = batchData.batches.find(b => b.code === 'SS_CERTIFIED');
+
+        if (!batch3) {
+          log('Batch 3 not found in DB!', true);
+          return;
+        }
+
+        const editRes = await fetch('/api/admin/change-batch-dates', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            batchId: batch3.id,
+            masterclassDate: dateStr,
+            cascade: false
+          })
+        });
+        const editData = await editRes.json();
+        if (editData.success) {
+          log('Batch date updated successfully.');
+          await loadData();
+        } else {
+          log('Batch update failed: ' + editData.error, true);
+        }
+      } catch (err) {
+        log('Date adjustment request error: ' + err.message, true);
+      }
+    }
+
+    async function triggerReminderCheck() {
+      log('Triggering upcoming event reminder check scan...');
+      try {
+        const res = await fetch('/api/admin/notifications/check-reminders', { method: 'POST' });
+        const data = await res.json();
+        log(data.message);
+        await loadData();
+      } catch (err) {
+        log('Scanner error: ' + err.message, true);
+      }
+    }
+
+    window.onload = loadData;
+    setInterval(loadData, 5000);
+  </script>
+</body>
+</html>

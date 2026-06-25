@@ -4,65 +4,121 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>LBDA | Client Portal</title>
-  <link rel="stylesheet" href="style.css?v=1.2">
+  <link rel="stylesheet" href="style.css?v=1.3">
 </head>
 <body>
+
+  <!-- Notification Toast / Alert Banner -->
+  <div id="notification-banner" class="panel" style="display: none; padding: 1rem 1.5rem; border: 1px solid var(--border-color); border-radius: 8px; font-weight: 500; font-family: var(--font-sans); transition: all 0.3s ease; opacity: 0; align-items: center; gap: 0.75rem;">
+    <span id="notification-icon" style="font-size: 1.2rem;"></span>
+    <span id="notification-message"></span>
+  </div>
+
+  <!-- Background Glow Ribbon Effects -->
+  <div class="body-glow-effects">
+    <div class="glow-ribbon-left"></div>
+    <div class="glow-ribbon-right"></div>
+    <div class="glow-beam-bottom"></div>
+  </div>
+
+  <!-- Loading Splash Screen -->
+  <div id="loading-screen" class="loading-overlay">
+    <div class="loader-content">
+      <div class="loader-logo-container">
+        <img src="assets/icon_logo.png" class="loader-logo-img" alt="LIFEBYDESIGN Logo">
+      </div>
+      <div class="loader-brand">
+        LIFEBY<span>DESIGN</span>
+      </div>
+      <div class="loader-status">LOADING...</div>
+      <button class="btn-enter-portal" onclick="enterPortal()">ENTER PORTAL</button>
+    </div>
+  </div>
 
   <div class="app-container">
     
     <!-- =======================================================================
-         VIEW: SIGN-IN / REGISTRATION
+         VIEW: SIGN-IN / OTP VERIFICATION (Sample Page Glassmorphism Card)
          ======================================================================= -->
-    <div id="auth-panel" class="panel" style="max-width: 450px; margin: 4rem auto; display: none;">
-      <h2 class="panel-title" style="justify-content: center; border-bottom: none; padding-bottom: 0; margin-bottom: 1.5rem; gap: 0.8rem; font-family: var(--font-sans); font-size: 1.8rem; letter-spacing: 0.5px;">
-        <span style="display: inline-flex; align-items: center;"><span style="font-family: 'Walkway-SemiBold', sans-serif; font-weight: normal; color: #ffffff;">LIFEBY</span><span style="font-family: 'Walkway-Black', sans-serif; font-weight: normal; color: #ffffff;">DESIGN</span></span>
-        <span style="color: var(--secondary); font-weight: 300;">Client Login</span>
-      </h2>
+    <div id="auth-panel" class="glass-login-card" style="display: none;">
+      <!-- Close Card Button -->
+      <button class="card-close-btn" onclick="resetOtpRequest()">&times;</button>
+      
+      <!-- Lock Icon Header -->
+      <div class="card-header-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="card-lock-svg">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+        </svg>
+      </div>
+
+      <h2 class="card-title">WELCOME BACK</h2>
+      <p class="card-subtitle">TO OUR PARTNERSHIP PROGRAM</p>
       
       <div id="auth-error" class="text-danger text-center mb-3" style="font-weight: 600; display: none;"></div>
+      <div id="auth-success" class="text-success text-center mb-3" style="font-weight: 600; display: none;"></div>
       
-      <!-- Toggle Forms -->
-      <div class="nav-tabs mb-3" style="width: 100%; justify-content: center;">
-        <button class="tab-btn active" id="btn-auth-tab-login" onclick="toggleAuthMode('login')">Sign In</button>
-        <button class="tab-btn" id="btn-auth-tab-register" onclick="toggleAuthMode('register')">Register</button>
+      <!-- Section 1: Credentials Entry -->
+      <div id="credentials-section">
+        <div class="glass-form-group">
+          <label class="glass-form-label" for="auth-email">EMAIL ID</label>
+          <div class="glass-input-container">
+            <span class="glass-input-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="glass-icon-svg">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.626a1.5 1.5 0 0 1-1.68 0l-7.5-4.626A2.25 2.25 0 0 1 4.5 7.003V6.75" />
+              </svg>
+            </span>
+            <input type="email" class="glass-form-input" id="auth-email" placeholder="Enter your email ID">
+          </div>
+        </div>
+        
+        <div class="glass-form-group">
+          <label class="glass-form-label" for="auth-phone">MOBILE NUMBER</label>
+          <div class="glass-input-container">
+            <span class="glass-input-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="glass-icon-svg">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
+              </svg>
+            </span>
+            <input type="text" class="glass-form-input" id="auth-phone" placeholder="Enter your mobile number">
+          </div>
+        </div>
+
+        <button class="btn-gold-gradient" id="btn-request-otp" onclick="handleRequestOtp()">
+          <span>SEND OTP</span> <span class="btn-gold-gradient-arrow">&rarr;</span>
+        </button>
       </div>
 
-      <!-- Registration Fields (Hidden by default) -->
-      <div id="register-fields" style="display: none;">
-        <div class="form-group">
-          <label class="form-label" for="auth-name">Full Name</label>
-          <input type="text" class="form-control" id="auth-name" placeholder="e.g. Sarah Connor">
+      <!-- Section 2: OTP Entry (Hidden initially) -->
+      <div id="otp-verification-section" style="display: none; margin-top: 1.5rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
+        <div class="glass-form-group">
+          <label class="glass-form-label" for="auth-otp">VERIFICATION OTP</label>
+          <div class="glass-input-container">
+            <span class="glass-input-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="glass-icon-svg">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z" />
+              </svg>
+            </span>
+            <input type="text" class="glass-form-input" id="auth-otp" placeholder="Enter 6-digit OTP code" maxlength="6" style="text-align: center; font-family: var(--font-mono); letter-spacing: 3px;">
+          </div>
         </div>
-        <div class="form-group">
-          <label class="form-label" for="auth-referral">Referral Code (Optional)</label>
-          <input type="text" class="form-control" id="auth-referral" placeholder="e.g. ALEX8831" style="text-transform: uppercase;">
-        </div>
+
+        <button class="btn-gold-gradient" id="btn-verify-otp" onclick="handleVerifyOtp()">
+          <span>VERIFY & ENTER</span> <span class="btn-gold-gradient-arrow">&rarr;</span>
+        </button>
+
+        <button class="btn btn-sm" style="width: 100%; margin-top: 1rem; background: none; border: none; color: var(--text-muted); cursor: pointer; text-decoration: underline; font-weight: normal; -webkit-text-stroke: 0px;" onclick="resetOtpRequest()">
+          Change Email / Phone
+        </button>
       </div>
 
-      <div class="form-group">
-        <label class="form-label" for="auth-email">Email Address</label>
-        <input type="email" class="form-control" id="auth-email" placeholder="sarah@t800.com">
-      </div>
-      <div class="form-group">
-        <label class="form-label" for="auth-password">Password</label>
-        <div style="position: relative; display: flex; align-items: center; width: 100%;">
-          <input type="password" class="form-control" id="auth-password" placeholder="••••••••" style="padding-right: 2.5rem;">
-          <button type="button" onclick="togglePasswordVisibility()" style="position: absolute; right: 0.75rem; background: none; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text-muted); outline: none;" id="password-toggle-btn">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 1.25rem; height: 1.25rem;">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-            </svg>
-          </button>
-        </div>
+      <!-- Lock Footer Details -->
+      <div class="card-footer-info">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="card-footer-lock-svg">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+        </svg>
+        <span>OTP will be sent to your email ID and mobile number. Please verify to continue.</span>
       </div>
 
-      <button class="btn btn-primary" style="width: 100%; margin-top: 1rem;" id="btn-auth-submit" onclick="handleAuthSubmit()">
-        Sign In
-      </button>
-      
-      <p style="color: var(--text-muted); font-size: 0.8rem; text-align: center; margin-top: 1rem; font-style: italic;">
-        Prototype Demo: Any password will work for existing accounts.
-      </p>
     </div>
 
     <!-- =======================================================================
@@ -81,13 +137,7 @@
         
         <!-- Navigation Tabs -->
         <nav class="nav-tabs">
-          <button class="tab-btn active" id="menu-btn-courses" onclick="switchTab('courses')">
-            Courses
-          </button>
-          <button class="tab-btn" id="menu-btn-cart" onclick="switchTab('cart')">
-            Cart (<span id="cart-count">0</span>)
-          </button>
-          <button class="tab-btn" id="menu-btn-referral" onclick="switchTab('referral')">
+          <button class="tab-btn active" id="menu-btn-referral" onclick="switchTab('referral')">
             Refer & Earn
           </button>
           <button class="tab-btn" id="menu-btn-profile" onclick="switchTab('profile')">
@@ -99,166 +149,162 @@
         </nav>
       </header>
 
-      <!-- Notification Toast / Alert Banner -->
-      <div id="notification-banner" class="panel" style="display: none; padding: 1rem 1.5rem; margin-bottom: 1.5rem; border: 1px solid var(--border-color); border-radius: 8px; font-weight: 500; font-family: var(--font-sans); transition: all 0.3s ease; opacity: 0; align-items: center; gap: 0.75rem;">
-        <span id="notification-icon" style="font-size: 1.2rem;"></span>
-        <span id="notification-message"></span>
-      </div>
-
-      <!-- TAB: COURSES CATALOG -->
-      <div id="tab-courses" class="tab-content active">
-        <div class="d-flex justify-between align-center mb-3">
-          <h2 style="font-family: var(--font-sans); font-weight: 700;">Divine Learning Catalog</h2>
-          <span style="font-size: 0.9rem; color: var(--text-muted); font-style: italic;" id="welcome-message">Welcome!</span>
-        </div>
-        
-        <!-- Courses Grid -->
-        <div class="grid-3" id="courses-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 2rem; margin-top: 2rem;">
+      <!-- Hidden Courses & Cart tabs for JS compatibility -->
+      <div style="display: none !important;">
+        <!-- TAB: COURSES CATALOG -->
+        <div id="tab-courses" class="tab-content">
+          <div class="d-flex justify-between align-center mb-3">
+            <h2 style="font-family: var(--font-sans); font-weight: 700;">Divine Learning Catalog</h2>
+            <span style="font-size: 0.9rem; color: var(--text-muted); font-style: italic;" id="welcome-message">Welcome!</span>
+          </div>
           
-          <!-- Course Card 1 -->
-          <div class="panel course-card" style="padding: 2rem; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; border-top: 3px solid var(--secondary); border-radius: 8px; position: relative; background: var(--bg-secondary);">
-            <div>
-              <div style="margin-bottom: 1.5rem;">
-                <span style="border: 1px solid var(--secondary); color: var(--secondary); font-size: 0.75rem; letter-spacing: 1.5px; padding: 0.25rem 0.6rem; text-transform: uppercase; font-weight: 700; background: transparent; display: inline-block; border-radius: 2px;">LIVE NOW</span>
-              </div>
-              <div style="font-size: 0.8rem; color: var(--text-muted); letter-spacing: 2px; text-transform: uppercase; font-weight: 500; margin-bottom: 0.5rem;">STAGE 01 · ENTRY</div>
-              <h2 style="font-family: var(--font-sans); font-size: 2.2rem; font-weight: 300; color: #ffffff; margin-bottom: 2rem; line-height: 1.2;">The Gap</h2>
-              
-              <div style="display: flex; justify-content: space-between; padding: 0.9rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.9rem;">
-                <span style="color: var(--text-muted);">Investment</span>
-                <span style="color: #ffffff; font-weight: 500;">₹10,000 + GST</span>
-              </div>
-              <div style="display: flex; justify-content: space-between; padding: 0.9rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.9rem;">
-                <span style="color: var(--text-muted);">Duration</span>
-                <span style="color: #ffffff; font-weight: 500;">4 hrs</span>
-              </div>
-              <div style="display: flex; justify-content: space-between; padding: 0.9rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; margin-bottom: 2rem;">
-                <span style="color: var(--text-muted);">Schedule</span>
-                <span style="color: #ffffff; font-weight: 500;">Every Saturday</span>
-              </div>
-            </div>
+          <!-- Courses Grid -->
+          <div class="grid-3" id="courses-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 2rem; margin-top: 2rem;">
             
-            <div>
-              <div style="margin-bottom: 1.5rem;">
-                <span style="font-size: 1.8rem; font-weight: 700; color: var(--secondary);">₹10,000</span>
-                <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 0.2rem;">+ GST · per person</span>
+            <!-- Course Card 1 -->
+            <div class="panel course-card" style="padding: 2rem; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; border-top: 3px solid var(--secondary); border-radius: 8px; position: relative; background: var(--bg-secondary);">
+              <div>
+                <div style="margin-bottom: 1.5rem;">
+                  <span style="border: 1px solid var(--secondary); color: var(--secondary); font-size: 0.75rem; letter-spacing: 1.5px; padding: 0.25rem 0.6rem; text-transform: uppercase; font-weight: 700; background: transparent; display: inline-block; border-radius: 2px;">LIVE NOW</span>
+                </div>
+                <div style="font-size: 0.8rem; color: var(--text-muted); letter-spacing: 2px; text-transform: uppercase; font-weight: 500; margin-bottom: 0.5rem;">STAGE 01 · ENTRY</div>
+                <h2 style="font-family: var(--font-sans); font-size: 2.2rem; font-weight: 300; color: #ffffff; margin-bottom: 2rem; line-height: 1.2;">The Gap</h2>
+                
+                <div style="display: flex; justify-content: space-between; padding: 0.9rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.9rem;">
+                  <span style="color: var(--text-muted);">Investment</span>
+                  <span style="color: #ffffff; font-weight: 500;">₹10,000 + GST</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 0.9rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.9rem;">
+                  <span style="color: var(--text-muted);">Duration</span>
+                  <span style="color: #ffffff; font-weight: 500;">4 hrs</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 0.9rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; margin-bottom: 2rem;">
+                  <span style="color: var(--text-muted);">Schedule</span>
+                  <span style="color: #ffffff; font-weight: 500;">Every Saturday</span>
+                </div>
               </div>
-              <button class="btn btn-primary" style="width: 100%;" onclick="addToCart(1, 'The Gap', 10000)">Add to Cart</button>
-            </div>
-          </div>
-
-          <!-- Course Card 2 -->
-          <div class="panel course-card" style="padding: 2rem; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; border-top: 3px solid var(--border-color); border-radius: 8px; position: relative; background: var(--bg-secondary);">
-            <div>
-              <div style="margin-bottom: 1.5rem;">
-                <span style="border: 1px solid var(--border-color); color: var(--text-muted); font-size: 0.75rem; letter-spacing: 1.5px; padding: 0.25rem 0.6rem; text-transform: uppercase; font-weight: 700; background: transparent; display: inline-block; border-radius: 2px;">COMING SOON</span>
-              </div>
-              <div style="font-size: 0.8rem; color: var(--text-muted); letter-spacing: 2px; text-transform: uppercase; font-weight: 500; margin-bottom: 0.5rem;">STAGE 02 · DEEP DIVE</div>
-              <h2 style="font-family: var(--font-sans); font-size: 2.2rem; font-weight: 300; color: #ffffff; margin-bottom: 2rem; line-height: 1.2;">The Bridge</h2>
               
-              <div style="display: flex; justify-content: space-between; padding: 0.9rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.9rem;">
-                <span style="color: var(--text-muted);">Investment</span>
-                <span style="color: #ffffff; font-weight: 500;">₹1,00,000 + GST</span>
-              </div>
-              <div style="display: flex; justify-content: space-between; padding: 0.9rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.9rem;">
-                <span style="color: var(--text-muted);">Duration</span>
-                <span style="color: #ffffff; font-weight: 500;">3 months</span>
-              </div>
-              <div style="display: flex; justify-content: space-between; padding: 0.9rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; margin-bottom: 2rem;">
-                <span style="color: var(--text-muted);">Schedule</span>
-                <span style="color: #ffffff; font-weight: 500;">Weekly</span>
+              <div>
+                <div style="margin-bottom: 1.5rem;">
+                  <span style="font-size: 1.8rem; font-weight: 700; color: var(--secondary);">₹10,000</span>
+                  <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 0.2rem;">+ GST · per person</span>
+                </div>
+                <button class="btn btn-primary" style="width: 100%;" onclick="addToCart(1, 'The Gap', 10000)">Add to Cart</button>
               </div>
             </div>
-            
-            <div>
-              <div style="margin-bottom: 0.5rem;">
-                <span style="font-size: 1.8rem; font-weight: 700; color: var(--secondary);">₹1,00,000</span>
-                <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 0.2rem;">+ GST · per person</span>
-              </div>
-              <div style="font-size: 0.8rem; color: var(--text-muted); font-style: italic; margin-bottom: 1rem;">Available to Gap graduates only</div>
-              <button class="btn btn-primary" style="width: 100%;" onclick="addToCart(2, 'The Bridge', 100000)">Add to Cart</button>
-            </div>
-          </div>
 
-          <!-- Course Card 3 -->
-          <div class="panel course-card" style="padding: 2rem; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; border-top: 3px solid var(--border-color); border-radius: 8px; position: relative; background: var(--bg-secondary);">
-            <div>
-              <div style="margin-bottom: 1.5rem;">
-                <span style="border: 1px solid var(--border-color); color: var(--text-muted); font-size: 0.75rem; letter-spacing: 1.5px; padding: 0.25rem 0.6rem; text-transform: uppercase; font-weight: 700; background: transparent; display: inline-block; border-radius: 2px;">COMING SOON</span>
+            <!-- Course Card 2 -->
+            <div class="panel course-card" style="padding: 2rem; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; border-top: 3px solid var(--border-color); border-radius: 8px; position: relative; background: var(--bg-secondary);">
+              <div>
+                <div style="margin-bottom: 1.5rem;">
+                  <span style="border: 1px solid var(--border-color); color: var(--text-muted); font-size: 0.75rem; letter-spacing: 1.5px; padding: 0.25rem 0.6rem; text-transform: uppercase; font-weight: 700; background: transparent; display: inline-block; border-radius: 2px;">COMING SOON</span>
+                </div>
+                <div style="font-size: 0.8rem; color: var(--text-muted); letter-spacing: 2px; text-transform: uppercase; font-weight: 500; margin-bottom: 0.5rem;">STAGE 02 · DEEP DIVE</div>
+                <h2 style="font-family: var(--font-sans); font-size: 2.2rem; font-weight: 300; color: #ffffff; margin-bottom: 2rem; line-height: 1.2;">The Bridge</h2>
+                
+                <div style="display: flex; justify-content: space-between; padding: 0.9rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.9rem;">
+                  <span style="color: var(--text-muted);">Investment</span>
+                  <span style="color: #ffffff; font-weight: 500;">₹1,00,000 + GST</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 0.9rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.9rem;">
+                  <span style="color: var(--text-muted);">Duration</span>
+                  <span style="color: #ffffff; font-weight: 500;">3 months</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 0.9rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; margin-bottom: 2rem;">
+                  <span style="color: var(--text-muted);">Schedule</span>
+                  <span style="color: #ffffff; font-weight: 500;">Weekly</span>
+                </div>
               </div>
-              <div style="font-size: 0.8rem; color: var(--text-muted); letter-spacing: 2px; text-transform: uppercase; font-weight: 500; margin-bottom: 0.5rem;">STAGE 03 · MASTERY</div>
-              <h2 style="font-family: var(--font-sans); font-size: 2.2rem; font-weight: 300; color: #ffffff; margin-bottom: 2rem; line-height: 1.2;">The Journey</h2>
               
-              <div style="display: flex; justify-content: space-between; padding: 0.9rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.9rem;">
-                <span style="color: var(--text-muted);">Investment</span>
-                <span style="color: #ffffff; font-weight: 500;">₹5,00,000 + GST</span>
-              </div>
-              <div style="display: flex; justify-content: space-between; padding: 0.9rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.9rem;">
-                <span style="color: var(--text-muted);">Duration</span>
-                <span style="color: #ffffff; font-weight: 500;">1 year</span>
-              </div>
-              <div style="display: flex; justify-content: space-between; padding: 0.9rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; margin-bottom: 2rem;">
-                <span style="color: var(--text-muted);">Schedule</span>
-                <span style="color: #ffffff; font-weight: 500;">Membership</span>
+              <div>
+                <div style="margin-bottom: 0.5rem;">
+                  <span style="font-size: 1.8rem; font-weight: 700; color: var(--secondary);">₹1,00,000</span>
+                  <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 0.2rem;">+ GST · per person</span>
+                </div>
+                <div style="font-size: 0.8rem; color: var(--text-muted); font-style: italic; margin-bottom: 1rem;">Available to Gap graduates only</div>
+                <button class="btn btn-primary" style="width: 100%;" onclick="addToCart(2, 'The Bridge', 100000)">Add to Cart</button>
               </div>
             </div>
-            
-            <div>
-              <div style="margin-bottom: 0.5rem;">
-                <span style="font-size: 1.8rem; font-weight: 700; color: var(--secondary);">₹5,00,000</span>
-                <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 0.2rem;">+ GST · per person</span>
-              </div>
-              <div style="font-size: 0.8rem; color: var(--text-muted); font-style: italic; margin-bottom: 1rem;">Available to Bridge graduates only</div>
-              <button class="btn btn-primary" style="width: 100%;" onclick="addToCart(3, 'The Journey', 500000)">Add to Cart</button>
-            </div>
-          </div>
 
+            <!-- Course Card 3 -->
+            <div class="panel course-card" style="padding: 2rem; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; border-top: 3px solid var(--border-color); border-radius: 8px; position: relative; background: var(--bg-secondary);">
+              <div>
+                <div style="margin-bottom: 1.5rem;">
+                  <span style="border: 1px solid var(--border-color); color: var(--text-muted); font-size: 0.75rem; letter-spacing: 1.5px; padding: 0.25rem 0.6rem; text-transform: uppercase; font-weight: 700; background: transparent; display: inline-block; border-radius: 2px;">COMING SOON</span>
+                </div>
+                <div style="font-size: 0.8rem; color: var(--text-muted); letter-spacing: 2px; text-transform: uppercase; font-weight: 500; margin-bottom: 0.5rem;">STAGE 03 · MASTERY</div>
+                <h2 style="font-family: var(--font-sans); font-size: 2.2rem; font-weight: 300; color: #ffffff; margin-bottom: 2rem; line-height: 1.2;">The Journey</h2>
+                
+                <div style="display: flex; justify-content: space-between; padding: 0.9rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.9rem;">
+                  <span style="color: var(--text-muted);">Investment</span>
+                  <span style="color: #ffffff; font-weight: 500;">₹5,00,000 + GST</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 0.9rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.9rem;">
+                  <span style="color: var(--text-muted);">Duration</span>
+                  <span style="color: #ffffff; font-weight: 500;">1 year</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 0.9rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; margin-bottom: 2rem;">
+                  <span style="color: var(--text-muted);">Schedule</span>
+                  <span style="color: #ffffff; font-weight: 500;">Membership</span>
+                </div>
+              </div>
+              
+              <div>
+                <div style="margin-bottom: 0.5rem;">
+                  <span style="font-size: 1.8rem; font-weight: 700; color: var(--secondary);">₹5,00,000</span>
+                  <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 0.2rem;">+ GST · per person</span>
+                </div>
+                <div style="font-size: 0.8rem; color: var(--text-muted); font-style: italic; margin-bottom: 1rem;">Available to Bridge graduates only</div>
+                <button class="btn btn-primary" style="width: 100%;" onclick="addToCart(3, 'The Journey', 500000)">Add to Cart</button>
+              </div>
+            </div>
+
+          </div>
         </div>
-      </div>
 
-      <div id="tab-cart" class="tab-content" style="display: none;">
-        <h2 style="font-family: var(--font-sans); font-weight: 700; margin-bottom: 1.5rem;">Your Shopping Cart</h2>
-        
-        <!-- Active Referral Greeting Banner (shown if friend visited via referral link) -->
-        <div id="referred-banner" class="panel" style="display: none; border-color: var(--success); background: rgba(46, 125, 50, 0.02); padding: 1rem 2rem; margin-bottom: 2rem;">
-          <span class="text-success" style="font-weight: 700; font-family: var(--font-sans); display: block;">Special Referral Discount Activated!</span>
-          <span style="font-size: 0.9rem;" id="referred-banner-text">You were referred by a friend. Check out with their coupon code to save!</span>
-        </div>
-        
-        <div class="grid-2">
+        <div id="tab-cart" class="tab-content" style="display: none;">
+          <h2 style="font-family: var(--font-sans); font-weight: 700; margin-bottom: 1.5rem;">Your Shopping Cart</h2>
           
-          <!-- Cart Items List -->
-          <div>
-            <div class="panel" style="padding: 1rem;">
-              <div id="cart-items-list">
-                <!-- Populated via JS -->
+          <!-- Active Referral Greeting Banner (shown if friend visited via referral link) -->
+          <div id="referred-banner" class="panel" style="display: none; border-color: var(--success); background: rgba(46, 125, 50, 0.02); padding: 1rem 2rem; margin-bottom: 2rem;">
+            <span class="text-success" style="font-weight: 700; font-family: var(--font-sans); display: block;">Special Referral Discount Activated!</span>
+            <span style="font-size: 0.9rem;" id="referred-banner-text">You were referred by a friend. Check out with their coupon code to save!</span>
+          </div>
+          
+          <div class="grid-2">
+            
+            <!-- Cart Items List -->
+            <div>
+              <div class="panel" style="padding: 1rem;">
+                <div id="cart-items-list">
+                  <!-- Populated via JS -->
+                </div>
               </div>
             </div>
-          </div>
 
-          <!-- Summary & Coupon Checkout -->
-          <div class="panel">
-            <h3 style="font-family: var(--font-sans); font-weight: 700; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
-              Order Summary
-            </h3>
-            
-            <div class="cookie-item">
-              <span>Subtotal:</span>
-              <span id="cart-summary-subtotal" style="font-weight: 600;">₹0.00</span>
-            </div>
-            <div class="cookie-item" id="summary-discount-row" style="display: none;">
-              <span class="text-success" id="discount-label">Referral Discount:</span>
-              <span id="cart-summary-discount" class="text-success" style="font-weight: 600;">-₹0.00</span>
-            </div>
-            <div class="cookie-item" style="border: none; font-size: 1.1rem; font-weight: bold; padding: 1rem 0;">
-              <span>Total Price:</span>
-              <span id="cart-summary-total" style="color: var(--secondary);">₹0.00</span>
-            </div>
+            <!-- Summary & Coupon Checkout -->
+            <div class="panel">
+              <h3 style="font-family: var(--font-sans); font-weight: 700; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+                Order Summary
+              </h3>
+              
+              <div class="cookie-item">
+                <span>Subtotal:</span>
+                <span id="cart-summary-subtotal" style="font-weight: 600;">₹0.00</span>
+              </div>
+              <div class="cookie-item" id="summary-discount-row" style="display: none;">
+                <span class="text-success" id="discount-label">Referral Discount:</span>
+                <span id="cart-summary-discount" class="text-success" style="font-weight: 600;">-₹0.00</span>
+              </div>
+              <div class="cookie-item" style="border: none; font-size: 1.1rem; font-weight: bold; padding: 1rem 0;">
+                <span>Total Price:</span>
+                <span id="cart-summary-total" style="color: var(--secondary);">₹0.00</span>
+              </div>
 
-            <button class="btn btn-success" style="width: 100%; margin-top: 1rem;" id="btn-checkout" onclick="checkoutCart()">
-              💳 Complete Checkout & Enroll
-            </button>
-          </div>
+              <button class="btn btn-success" style="width: 100%; margin-top: 1rem;" id="btn-checkout" onclick="checkoutCart()">
+                💳 Complete Checkout & Enroll
+              </button>
+            </div>
           </div>
 
         </div>
@@ -366,6 +412,399 @@
 
   </div>
 
-  <script src="app.js?v=1.2"></script>
+  <!-- =======================================================================
+       VIEW: THE GREAT MIGRATION LANDING PAGE
+       ======================================================================= -->
+  <div id="migration-landing-panel" class="migration-container" style="display: none;">
+    <!-- Top Header -->
+    <div class="migration-header">
+      <div class="migration-brand">LIFEBY<span>DESIGN</span></div>
+    </div>
+
+    <!-- Center Content -->
+    <div class="migration-content">
+      <h1 class="migration-title">THE<br>GREAT MIGRATION</h1>
+      <button class="btn-reserve-seat" onclick="showMasterclassPopup()">
+        <span>RESERVE MY SEAT</span> <span class="btn-reserve-seat-arrow">&rarr;</span>
+      </button>
+    </div>
+
+    <!-- Masterclass Details Popup Modal -->
+    <div id="masterclass-popup" class="modal-overlay" style="display: none;">
+      <div class="glass-popup-card">
+        <!-- Close button -->
+        <button class="popup-close-btn" onclick="closeMasterclassPopup()">&times;</button>
+        
+        <!-- Grad Cap Icon -->
+        <div class="popup-header-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="popup-cap-svg">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.438 60.438 0 0 0-.491 6.347A48.62 48.62 0 0 1 12 20.904a48.62 48.62 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.57 50.57 0 0 0-2.658-.813A5.906 5.906 0 0 1 12 3.493a5.907 5.907 0 0 1 7.391 5.841 50.58 50.58 0 0 0-2.658.814m-15.482 0a50.694 50.694 0 0 1 15.482 0M2.25 10.5h1.5m16.5 0h1.5m-1.5 0a50.569 50.569 0 0 1-7.5-1.56m0 0a50.56 50.56 0 0 1-7.5 1.56" />
+          </svg>
+        </div>
+
+        <h3 class="popup-title">MASTERCLASS DETAILS</h3>
+        
+        <!-- Date Box -->
+        <div class="popup-detail-box">
+          <div class="popup-detail-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="detail-svg">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5m-9-6h.008v.008H12v-.008ZM12 15h.008v.008H12V15Zm0 2.25h.008v.008H12v-.008ZM9.75 15h.008v.008H9.75V15Zm0 2.25h.008v.008H9.75v-.008ZM7.5 15h.008v.008H7.5V15Zm0 2.25h.008v.008H7.5v-.008Zm6.75-4.5h.008v.008h-.008v-.008Zm0 2.25h.008v.008h-.008V15Zm0 2.25h.008v.008h-.008v-.008Zm2.25-4.5h.008v.008H16.5v-.008Zm0 2.25h.008v.008H16.5V15Z" />
+            </svg>
+          </div>
+          <div class="popup-detail-text">
+            <span class="detail-label">DATE</span>
+            <span class="detail-val" id="masterclass-popup-date">25th May 2025, Sunday</span>
+          </div>
+        </div>
+
+        <!-- Time Box -->
+        <div class="popup-detail-box">
+          <div class="popup-detail-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="detail-svg">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+            </svg>
+          </div>
+          <div class="popup-detail-text">
+            <span class="detail-label">TIME</span>
+            <span class="detail-val" id="masterclass-popup-time">7:00 PM &ndash; 9:00 PM (IST)</span>
+          </div>
+        </div>
+
+        <!-- Bell Notification Box -->
+        <div class="popup-detail-box">
+          <div class="popup-detail-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="detail-svg">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0M3.124 7.5A8.969 8.969 0 0 1 5.292 3m13.416 0a8.969 8.969 0 0 1 2.168 4.5" />
+            </svg>
+          </div>
+          <div class="popup-detail-text single-line">
+            <span class="detail-val">Your Zoom live class link will be sent before 24 hours on the date.</span>
+          </div>
+        </div>
+
+        <!-- Reserve Status Button -->
+        <button id="masterclass-popup-status-btn" class="btn-reserved-status">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" style="width: 1.1rem; height: 1.1rem; margin-right: 0.5rem; display: inline-block; vertical-align: middle;">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+          </svg>
+          <span id="masterclass-popup-status-text">RESERVED FOR YOUR MASTERCLASS</span>
+        </button>
+
+        <div id="masterclass-popup-footer-text" class="popup-footer-text">
+          You are registered.<br>All the details are already in place.
+        </div>
+
+        <button class="btn btn-sm" style="width: 100%; margin-top: 1rem; color: var(--secondary); background: none; border: none; cursor: pointer; text-decoration: underline; font-weight: normal; -webkit-text-stroke: 0px;" onclick="proceedToDashboard()">
+          Go to Courses Dashboard &rarr;
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =======================================================================
+       VIEW: THE GAP DETAILS PAGE
+       ======================================================================= -->
+  <div id="gap-details-panel" class="gap-details-container" style="display: none;">
+    <!-- Top Header -->
+    <div class="migration-header">
+      <div class="migration-brand">LIFEBY<span>DESIGN</span></div>
+    </div>
+
+    <!-- Center Content -->
+    <div class="gap-details-content" style="padding-top: 5vh; padding-bottom: 5vh;">
+      <div class="gap-details-badge">+ YOU ARE WATCHING THIS ON THE MASTERCLASS +</div>
+      <div class="gap-details-subtitle" style="margin-bottom: 1.5rem;">PUJA PUNEET &middot; LIFE BY DESIGN ACADEMY &middot; 2026</div>
+      
+      <!-- Hidden SEO Title -->
+      <h1 class="gap-details-title-seo" style="display: none;">You Transformed Your Life. Now Lead Others to Transform Theirs.</h1>
+      
+      <h2 style="font-family: var(--font-sans); font-weight: 700; color: #ffffff; font-size: 2.2rem; letter-spacing: 0.5px; margin-bottom: 0.5rem; text-transform: uppercase;">Divine Learning Catalog</h2>
+      <p style="color: var(--text-muted); font-size: 0.95rem; max-width: 600px; margin: 0 auto 2rem; font-family: var(--font-sans); line-height: 1.5;">
+        Enroll in the entry stage and complete each tier to unlock the next level of your transformation.
+      </p>
+
+      <!-- 3-Column Courses Grid (Main Course Details Page) -->
+      <div class="grid-3" id="gap-courses-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 2rem; width: 100%; max-width: 1100px; padding: 0 1rem; box-sizing: border-box; text-align: left;">
+        
+        <!-- The Gap Card (Unlocked) -->
+        <div class="panel course-card unlocked" style="padding: 2rem; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; border-top: 3px solid var(--secondary); border-radius: 8px; position: relative; background: rgba(30, 30, 30, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(198,162,104,0.3); transition: all 0.3s ease;">
+          <div>
+            <div style="margin-bottom: 1.5rem;">
+              <span style="border: 1px solid var(--secondary); color: var(--secondary); font-size: 0.75rem; letter-spacing: 1.5px; padding: 0.25rem 0.6rem; text-transform: uppercase; font-weight: 700; background: transparent; display: inline-block; border-radius: 2px;">LIVE NOW</span>
+            </div>
+            <div style="font-size: 0.8rem; color: var(--text-muted); letter-spacing: 2px; text-transform: uppercase; font-weight: 500; margin-bottom: 0.5rem;">STAGE 01 · ENTRY</div>
+            <h2 style="font-family: var(--font-sans); font-size: 2.2rem; font-weight: 300; color: #ffffff; margin-bottom: 2rem; line-height: 1.2;">The Gap</h2>
+            
+            <div style="display: flex; justify-content: space-between; padding: 0.9rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.9rem;">
+              <span style="color: var(--text-muted);">Investment</span>
+              <span style="color: #ffffff; font-weight: 500;">₹10,000 + GST</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 0.9rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.9rem;">
+              <span style="color: var(--text-muted);">Duration</span>
+              <span style="color: #ffffff; font-weight: 500;">4 hrs</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 0.9rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; margin-bottom: 2rem;">
+              <span style="color: var(--text-muted);">Schedule</span>
+              <span style="color: #ffffff; font-weight: 500;">Every Saturday</span>
+            </div>
+          </div>
+          
+          <div>
+            <div style="margin-bottom: 1.5rem;">
+              <span style="font-size: 1.8rem; font-weight: 700; color: var(--secondary);">₹10,000</span>
+              <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 0.2rem;">+ GST · per person</span>
+            </div>
+            <button class="btn-join-register-gap" style="width: 100%; border-radius: 4px; padding: 0.85rem; border: none; font-weight: 700; font-family: var(--font-sans); background: linear-gradient(135deg, #E2B774 0%, #C6A268 100%); color: #121212; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; transition: all 0.3s; box-shadow: 0 4px 15px rgba(198,162,104,0.2);" onclick="showGapRegistrationPopup()">Register for Gap</button>
+          </div>
+        </div>
+
+        <!-- The Bridge Card (Locked) -->
+        <div class="panel course-card locked" style="padding: 2rem; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; border-top: 3px solid var(--border-color); border-radius: 8px; position: relative; background: rgba(20, 20, 20, 0.4); backdrop-filter: blur(10px); border: 1px dashed rgba(255, 255, 255, 0.12); opacity: 0.65; transition: all 0.3s ease;">
+          <div>
+            <div style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
+              <span style="border: 1px solid var(--border-color); color: var(--text-muted); font-size: 0.75rem; letter-spacing: 1.5px; padding: 0.25rem 0.6rem; text-transform: uppercase; font-weight: 700; background: transparent; display: inline-block; border-radius: 2px;">COMING SOON</span>
+              <span style="color: var(--secondary); display: inline-flex; align-items: center;">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 1.1rem; height: 1.1rem;">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+                </svg>
+              </span>
+            </div>
+            <div style="font-size: 0.8rem; color: var(--text-muted); letter-spacing: 2px; text-transform: uppercase; font-weight: 500; margin-bottom: 0.5rem;">STAGE 02 · DEEP DIVE</div>
+            <h2 style="font-family: var(--font-sans); font-size: 2.2rem; font-weight: 300; color: rgba(255,255,255,0.7); margin-bottom: 2rem; line-height: 1.2;">The Bridge</h2>
+            
+            <div style="display: flex; justify-content: space-between; padding: 0.9rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.9rem;">
+              <span style="color: var(--text-muted);">Investment</span>
+              <span style="color: rgba(255,255,255,0.7); font-weight: 500;">₹1,00,000 + GST</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 0.9rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.9rem;">
+              <span style="color: var(--text-muted);">Duration</span>
+              <span style="color: rgba(255,255,255,0.7); font-weight: 500;">3 months</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 0.9rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; margin-bottom: 2rem;">
+              <span style="color: var(--text-muted);">Schedule</span>
+              <span style="color: rgba(255,255,255,0.7); font-weight: 500;">Weekly</span>
+            </div>
+          </div>
+          
+          <div>
+            <div style="margin-bottom: 0.5rem;">
+              <span style="font-size: 1.8rem; font-weight: 700; color: rgba(198,162,104,0.6);">₹1,00,000</span>
+              <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 0.2rem;">+ GST · per person</span>
+            </div>
+            <div style="font-size: 0.78rem; color: var(--text-muted); font-style: italic; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.3rem;">
+              <span>Available to Gap graduates only</span>
+            </div>
+            <button class="btn btn-secondary" style="width: 100%; border: 1px solid rgba(255,255,255,0.05); background: rgba(255,255,255,0.02); color: rgba(255,255,255,0.3); pointer-events: none; text-transform: uppercase;" disabled>LOCKED</button>
+          </div>
+        </div>
+
+        <!-- The Journey Card (Locked) -->
+        <div class="panel course-card locked" style="padding: 2rem; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; border-top: 3px solid var(--border-color); border-radius: 8px; position: relative; background: rgba(20, 20, 20, 0.4); backdrop-filter: blur(10px); border: 1px dashed rgba(255, 255, 255, 0.12); opacity: 0.65; transition: all 0.3s ease;">
+          <div>
+            <div style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
+              <span style="border: 1px solid var(--border-color); color: var(--text-muted); font-size: 0.75rem; letter-spacing: 1.5px; padding: 0.25rem 0.6rem; text-transform: uppercase; font-weight: 700; background: transparent; display: inline-block; border-radius: 2px;">COMING SOON</span>
+              <span style="color: var(--secondary); display: inline-flex; align-items: center;">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 1.1rem; height: 1.1rem;">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+                </svg>
+              </span>
+            </div>
+            <div style="font-size: 0.8rem; color: var(--text-muted); letter-spacing: 2px; text-transform: uppercase; font-weight: 500; margin-bottom: 0.5rem;">STAGE 03 · MASTERY</div>
+            <h2 style="font-family: var(--font-sans); font-size: 2.2rem; font-weight: 300; color: rgba(255,255,255,0.7); margin-bottom: 2rem; line-height: 1.2;">The Journey</h2>
+            
+            <div style="display: flex; justify-content: space-between; padding: 0.9rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.9rem;">
+              <span style="color: var(--text-muted);">Investment</span>
+              <span style="color: rgba(255,255,255,0.7); font-weight: 500;">₹5,00,000 + GST</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 0.9rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.9rem;">
+              <span style="color: var(--text-muted);">Duration</span>
+              <span style="color: rgba(255,255,255,0.7); font-weight: 500;">1 year</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 0.9rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; margin-bottom: 2rem;">
+              <span style="color: rgba(255,255,255,0.7); font-weight: 500;">Schedule</span>
+              <span style="color: rgba(255,255,255,0.7); font-weight: 500;">Membership</span>
+            </div>
+          </div>
+          
+          <div>
+            <div style="margin-bottom: 0.5rem;">
+              <span style="font-size: 1.8rem; font-weight: 700; color: rgba(198,162,104,0.6);">₹5,00,000</span>
+              <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 0.2rem;">+ GST · per person</span>
+            </div>
+            <div style="font-size: 0.78rem; color: var(--text-muted); font-style: italic; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.3rem;">
+              <span>Available to Bridge graduates only</span>
+            </div>
+            <button class="btn btn-secondary" style="width: 100%; border: 1px solid rgba(255,255,255,0.05); background: rgba(255,255,255,0.02); color: rgba(255,255,255,0.3); pointer-events: none; text-transform: uppercase;" disabled>LOCKED</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- GAP Registration Popup Modal -->
+    <div id="gap-registration-popup" class="modal-overlay" style="display: none;">
+      <div class="glass-popup-card" style="max-width: 480px; padding: 2.5rem 2rem;">
+        <!-- Close button -->
+        <button class="popup-close-btn" onclick="closeGapRegistrationPopup()">&times;</button>
+        
+        <!-- STEP 1: Registration Form -->
+        <div id="gap-reg-step1">
+          <!-- Icon -->
+          <div class="popup-header-icon" style="color: var(--secondary);">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 2.5rem; height: 2.5rem; display: inline-block;">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94-3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
+            </svg>
+          </div>
+
+          <h3 class="popup-title" style="margin-top: 0.5rem; letter-spacing: 2px;">JOIN THE GAP</h3>
+          <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem; font-family: var(--font-sans); line-height: 1.4;">
+            Complete your details below to join the GAP and become a part of our transformational community.
+          </p>
+
+          <form id="gap-registration-form" onsubmit="submitGapRegistration(event)">
+            <div class="form-group" style="text-align: left; margin-bottom: 1rem;">
+              <div style="position: relative;">
+                <span style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 1.1rem; height: 1.1rem;">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                  </svg>
+                </span>
+                <input type="text" id="gap-reg-name" class="form-control" placeholder="Full Name" required style="padding-left: 2.8rem; background: rgba(0,0,0,0.4); border: 1px solid rgba(198,162,104,0.25); color: #fff;">
+              </div>
+            </div>
+
+            <div class="form-group" style="text-align: left; margin-bottom: 1rem;">
+              <div style="position: relative;">
+                <span style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 1.1rem; height: 1.1rem;">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
+                  </svg>
+                </span>
+                <input type="email" id="gap-reg-email" class="form-control" placeholder="Email Address" required readonly style="padding-left: 2.8rem; background: rgba(0,0,0,0.4); border: 1px solid rgba(198,162,104,0.25); color: #ccc;">
+              </div>
+            </div>
+
+            <div class="form-group" style="text-align: left; margin-bottom: 1.5rem;">
+              <div style="position: relative;">
+                <span style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 1.1rem; height: 1.1rem;">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
+                  </svg>
+                </span>
+                <input type="text" id="gap-reg-phone" class="form-control" placeholder="Mobile Number" required style="padding-left: 2.8rem; background: rgba(0,0,0,0.4); border: 1px solid rgba(198,162,104,0.25); color: #fff;">
+              </div>
+            </div>
+
+            <button type="submit" class="btn-join-register-gap">
+              <span>JOIN & REGISTER FOR THE GAP</span> &rarr;
+            </button>
+          </form>
+
+          <div style="margin-top: 1.25rem; font-size: 0.75rem; color: var(--text-muted); display: flex; align-items: center; justify-content: center; gap: 0.3rem; font-family: var(--font-sans);">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 0.85rem; height: 0.85rem; display: inline-block; vertical-align: middle;">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+            </svg>
+            <span>Your information is secure and private.</span>
+          </div>
+        </div>
+
+        <!-- STEP 2: Gap Details -->
+        <div id="gap-reg-step2" style="display: none;">
+          <!-- Checkmark Icon in Circle -->
+          <div class="popup-header-icon" style="color: var(--secondary); margin-bottom: 0.75rem;">
+            <div style="width: 3rem; height: 3rem; border-radius: 50%; border: 2.5px solid var(--secondary); display: inline-flex; align-items: center; justify-content: center; margin: 0 auto;">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor" style="width: 1.5rem; height: 1.5rem;">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+              </svg>
+            </div>
+          </div>
+
+          <h3 class="popup-title" style="margin-top: 0.5rem; letter-spacing: 2px;">YOU'RE IN THE GAP!</h3>
+          <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem; font-family: var(--font-sans); line-height: 1.4;">
+            Thank you for joining the GAP community.<br>Here are your session details:
+          </p>
+
+          <!-- Date Box -->
+          <div class="popup-detail-box">
+            <div class="popup-detail-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="detail-svg">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5m-9-6h.008v.008H12v-.008ZM12 15h.008v.008H12V15Zm0 2.25h.008v.008H12v-.008ZM9.75 15h.008v.008H9.75V15Zm0 2.25h.008v.008H9.75v-.008ZM7.5 15h.008v.008H7.5V15Zm0 2.25h.008v.008H7.5v-.008Zm6.75-4.5h.008v.008h-.008v-.008Zm0 2.25h.008v.008h-.008V15Zm0 2.25h.008v.008h-.008v-.008Zm2.25-4.5h.008v.008H16.5v-.008Zm0 2.25h.008v.008H16.5V15Z" />
+              </svg>
+            </div>
+            <div class="popup-detail-text">
+              <span class="detail-label">DATE</span>
+              <span class="detail-val" id="gap-popup-date">25th May 2025, Sunday</span>
+            </div>
+          </div>
+
+          <!-- Time Box -->
+          <div class="popup-detail-box">
+            <div class="popup-detail-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="detail-svg">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+              </svg>
+            </div>
+            <div class="popup-detail-text">
+              <span class="detail-label">TIME</span>
+              <span class="detail-val" id="gap-popup-time">7:00 PM &ndash; 9:00 PM (IST)</span>
+            </div>
+          </div>
+
+          <!-- Platform Box -->
+          <div class="popup-detail-box">
+            <div class="popup-detail-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="detail-svg">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9a2.25 2.25 0 0 0-2.25 2.25v9a2.25 2.25 0 0 0 2.25 2.25z" />
+              </svg>
+            </div>
+            <div class="popup-detail-text">
+              <span class="detail-label">PLATFORM</span>
+              <span class="detail-val">Zoom</span>
+            </div>
+          </div>
+
+          <!-- Bell Notification Box -->
+          <div class="popup-detail-box">
+            <div class="popup-detail-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="detail-svg">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0M3.124 7.5A8.969 8.969 0 0 1 5.292 3m13.416 0a8.969 8.969 0 0 1 2.168 4.5" />
+              </svg>
+            </div>
+            <div class="popup-detail-text single-line">
+              <span class="detail-val" style="font-size: 0.8rem;">Your Zoom live class link will be sent before 24 hours on the date.</span>
+            </div>
+          </div>
+
+          <button class="btn-join-register-gap" onclick="finishGapRegistration()" style="margin-top: 1.5rem;">
+            <span>GOT IT</span> &rarr;
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Floating Payment Widget -->
+  <div id="floating-payment-widget" class="floating-payment-card" style="display: none;">
+    <button class="floating-payment-close" onclick="closeFloatingPaymentWidget()">&times;</button>
+    <div class="floating-payment-header">
+      <div class="floating-payment-icon-container">
+        <div class="floating-payment-icon-circle">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 1.8rem; height: 1.8rem; color: var(--secondary);">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3" />
+          </svg>
+        </div>
+        <div class="floating-payment-badge">1</div>
+      </div>
+      <div class="floating-payment-text-container">
+        <div class="floating-payment-title">₹1,00,000 PAYMENT PENDING</div>
+        <div class="floating-payment-sub">Your next step towards becoming a Life Design Partner.</div>
+      </div>
+    </div>
+    <button class="btn-floating-payment-pay" onclick="initiateFloatingPayment()">
+      Make Payment &rarr;
+    </button>
+  </div>
+
+  <script src="app.js?v=1.4"></script>
 </body>
 </html>

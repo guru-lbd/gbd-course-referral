@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>LBDA Client Portal & Excel Database Test Bench</title>
+  <style>
+    body { font-family: monospace; padding: 20px; max-width: 1200px; margin: 0 auto; background: #fafafa; }
+    h1 { border-bottom: 2px solid #333; padding-bottom: 5px; }
+    .card { background: #fff; border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 4px; }
+    .row { display: flex; gap: 20px; }
+    .col-4 { width: 33.33%; }
+    .col-8 { width: 66.66%; }
+    .col-12 { width: 100%; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 20px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 13px; }
+    th { background: #eee; }
+    button, select, input { padding: 6px; font-family: monospace; box-sizing: border-box; margin: 2px 0; }
+    button { background: #333; color: white; border: none; cursor: pointer; font-weight: bold; }
+    button:hover { background: #555; }
+    .btn-green { background: #28a745; }
+    .btn-green:hover { background: #218838; }
+    .btn-red { background: #dc3545; }
+    .btn-red:hover { background: #bd2130; }
+    .btn-orange { background: #fd7e14; }
+    .btn-orange:hover { background: #e36209; }
+    .btn-blue { background: #007bff; }
+    .btn-blue:hover { background: #0069d9; }
+    .log-panel { background: #000; color: #0f0; padding: 12px; font-size: 12px; max-height: 250px; overflow-y: auto; border-radius: 4px; margin-top: 15px; }
+    .badge { display: inline-block; padding: 2px 6px; border-radius: 3px; font-weight: bold; font-size: 11px; color: white; }
+    .badge-stage { background: #6f42c1; }
+    .badge-role { background: #007bff; }
+    .badge-PARTNER { background: #28a745; }
+    .badge-MD { background: #dc3545; }
+    .badge-OPERATIONS { background: #fd7e14; }
+    .badge-FINANCE { background: #17a2b8; }
+    .batch-title { background: #333; color: white; padding: 6px 12px; margin-top: 20px; font-size: 15px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <h1>LBDA Client Excel Database Test Bench</h1>
+
+  <!-- Navigation -->
+  <div style="margin-bottom: 20px;">
+    <strong>Navigation Links:</strong> 
+    <a href="/test-auth.html">Double-OTP Login</a> | 
+    <a href="/test-stage-engine.html">Batches & Stages</a> | 
+    <a href="/test-payments.html">Payments Sandbox</a> | 
+    <a href="/test-referrals.html">Referral Tree</a> | 
+    <a href="/test-notifications.html">Notifications Bench</a> |
+    <a href="/test-users.html">Admin CRUD Bench</a>
+  </div>
+
+  <div class="row">
+    <!-- Left Column: Sessions & Controls -->
+    <div class="col-4">
+      <!-- Active Session Status -->
+      <div class="card">
+        <h3>1. Active Session Status</h3>
+        <div id="session-info">Checking session...</div>
+        <div style="margin-top: 10px;">
+          <button onclick="logout()">Logout Current Session</button>
+        </div>
+      </div>
+
+      <!-- Quick Dev Login Presets -->
+      <div class="card">
+        <h3>2. Quick Dev Logins (Admin Bypass)</h3>
+        <p style="font-size: 11px; color: #666; margin-top: 0;">Log in as an administrator to unlock and manage client stages.</p>
+        <div style="display: flex; flex-direction: column; gap: 5px;">
+          <button class="btn-red" onclick="autoLogin('md@test.com', '9999990099')">Login as MD (md@test.com)</button>
+          <button class="btn-orange" onclick="autoLogin('ops@test.com', '9999990088')">Login as OPERATIONS (ops@test.com)</button>
+          <button class="btn-blue" onclick="autoLogin('finance@test.com', '9999990077')">Login as FINANCE (finance@test.com)</button>
+        </div>
+      </div>
+
+      <!-- Client Portal View -->
+      <div class="card id="client-view-card">
+        <h3>3. Client Actions (For Active Session)</h3>
+        <div id="client-actions-prompt">Log in as a client below to perform self-actions.</div>
+        <div id="client-actions-area" class="hidden">
+          <p>Logged in as: <strong id="client-active-email"></strong></p>
+          <div id="client-stage-actions" style="display: flex; flex-direction: column; gap: 6px;">
+            <!-- Rendered dynamically depending on stage -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Column: Batch Segregated Client Directories -->
+    <div class="col-8">
+      <div class="card">
+        <h3>Clients Database (Segregated by Course Batch)</h3>
+        <p style="font-size: 11px; color: #666; margin-top: 0;">These clients were imported directly from <strong>Database test.xlsx</strong>.</p>
+        
+        <div id="batches-container">
+          <!-- Populated dynamically -->
+          Loading database records...
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Debug logs panel -->
+  <div class="col-12">
+    <h3>Developer Output logs</h3>
+    <div class="log-panel" id="log-panel">Ready.</div>
+  </div>
+
+  <script>
+    let activeUser = null;
+    let allUsers = [];
+    let allBatches = [];
+
+    function log(message, isError = false) {
+      const panel = document.getElementById('log-panel');
+      const time = new Date().toLocaleTimeString();
+      const style = isError ? 'color: #ff3333;' : '';
+      panel.innerHTML += `<div style="${style}">[${time}] ${message}</div>`;
+      panel.scrollTop = panel.scrollHeight;
+    }
+
+    async function checkSession() {
+      try {
+        const res = await fetch('/api/user');
+        const data = await res.json();
+        const infoDiv = document.getElementById('session-info');
+        const clientActionsArea = document.getElementById('client-actions-area');
+        const clientActionsPrompt = document.getElementById('client-actions-prompt');
+        
+        if (data.authenticated) {
+          activeUser = data.user;
+          infoDiv.innerHTML = `
+            <strong>Name:</strong> ${data.user.name}<br>
+            <strong>Email:</strong> ${data.user.email}<br>
+            <strong>Role:</strong> <span class="badge badge-role">${data.user.role}</span><br>
+            <strong>Stage:</strong> <span class="badge badge-stage">${data.user.current_stage}</span>
+          `;
+          log(`Session verified: Logged in as ${data.user.email}`);
+
+          if (data.user.role === 'USER') {
+            clientActionsPrompt.classList.add('hidden');
+            clientActionsArea.classList.remove('hidden');
+            document.getElementById('client-active-email').textContent = data.user.email;
+            renderClientSelfActions(data.user);
+          } else {
+            // Admin user
+            clientActionsPrompt.classList.remove('hidden');
+            clientActionsPrompt.innerHTML = `Logged in as Admin (<strong>${data.user.role}</strong>). Manage clients in the directory.`;
+            clientActionsArea.classList.add('hidden');
+          }
+        } else {
+          activeUser = null;
+          infoDiv.innerHTML = '<strong>Not Logged In</strong> (Guest Mode)';
+          clientActionsPrompt.classList.remove('hidden');
+          clientActionsPrompt.textContent = 'Log in as a client below to perform self-actions.';
+          clientActionsArea.classList.add('hidden');
+          log('Session check: Guest mode.');
+        }
+      } catch (err) {
+        log('Session check failed: ' + err.message, true);
+      }
+    }
+
+    async function autoLogin(email, phone) {
+      log(`Auto-login sequence for ${email}...`);
+      try {
+        const reqRes = await fetch('/api/auth/request-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, phone })
+        });
+        const reqData = await reqRes.json();
+        if (!reqData.success) {
+          log(`OTP request failed: ${reqData.message}`, true);
+          return;
+        }
+
+        const debugRes = await fetch('/api/debug/otps');
+        const debugData = await debugRes.json();
+        const userOtp = debugData.otps[email.toLowerCase()];
+        
+        if (!userOtp) {
+          log(`No active OTP found for ${email} in debug store. Make sure it matches seed.`, true);
+          return;
+        }
+
+        const verifyRes = await fetch('/api/auth/verify-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email,
+            emailOtp: userOtp.emailOtp,
+            phoneOtp: userOtp.phoneOtp
+          })
+        });
+        const verifyData = await verifyRes.json();
+        
+        if (verifyData.success) {
+          log(`Login Success: Authenticated as ${email}`);
+          await checkSession();
+          await loadDashboardData();
+        } else {
+          log(`Verification failed: ${verifyData.message}`, true);
+        }
+      } catch (err) {
+        log(`Auto-login error: ${err.message}`, true);
+      }
+    }
+
+    async function logout() {
+      log('Logging out...');
+      try {
+        const res = await fetch('/api/auth/logout', { method: 'POST' });
+        const data = await res.json();
+        log(data.message);
+        await checkSession();
+        renderBatches([]);
+      } catch (err) {
+        log('Logout error: ' + err.message, true);
+      }
+    }
+
+    async function loadDashboardData() {
+      try {
+        const res = await fetch('/api/admin/data');
+        if (res.status === 401 || res.status === 403) {
+          const tbody = document.getElementById('batches-container');
+          tbody.innerHTML = `<div style="color:red;font-weight:bold;padding:15px;border:1px solid red;border-radius:4px;">Access Denied: You must be logged in as an Admin (MD, OPERATIONS, or FINANCE) to view client lists.</div>`;
+          return;
+        }
+        
+        const data = await res.json();
+        if (!data.success) {
+          log('Failed to fetch dataset: ' + data.error, true);
+          return;
+        }
+        
+        allUsers = data.users || [];
+        allBatches = data.batches || [];
+        renderBatches(allUsers);
+      } catch (err) {
+        log('Dashboard load failed: ' + err.message, true);
+      }
+    }
+
+    function renderBatches(users) {
+      const container = document.getElementById('batches-container');
+      if (users.length === 0) {
+        container.innerHTML = '<div style="color:#666;padding:10px;">Please log in as an administrator first.</div>';
+        return;
+      }
+
+      // Group users by batch code
+      const groups = {
+        'OLD_BIG_SISTER': [],
+        'NEW_BIG_SISTER': [],
+        'SS_CERTIFIED': [],
+        'UNASSIGNED': []
+      };
+
+      for (const u of users) {
+        const batchCode = u.batch_name ? u.batch_name.toUpperCase().replace(/\s+/g, '_') : 'UNASSIGNED';
+        if (groups[batchCode]) {
+          groups[batchCode].push(u);
+        } else {
+          groups['UNASSIGNED'].push(u);
+        }
+      }
+
+      let html = '';
+
+      for (const batch of allBatches) {
+        const code = batch.code;
+        const list = groups[code] || [];
+        
+        html += `
+          <div class="batch-title">
+            <span><strong>Batch: ${batch.name}</strong> (${code})</span>
+            <span style="font-size:11px; font-weight:normal;">Dates: M:${batch.masterclass_date} | G:${batch.gap_date} | B:${batch.bridge_date}</span>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Name / Contacts</th>
+                <th>Stage</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+        `;
+
+        if (list.length === 0) {
+          html += `<tr><td colspan="4" style="text-align:center;color:#aaa;">No Excel users in this batch.</td></tr>`;
+        } else {
+          for (const u of list) {
+            html += `
+              <tr>
+                <td>${u.id}</td>
+                <td>
+                  <strong>${u.name}</strong><br>
+                  <span style="font-size:11px;color:#555;">${u.email}</span><br>
+                  <span style="font-size:11px;color:#555;">Phone: ${u.phone}</span>
+                </td>
+                <td><span class="badge badge-stage">${u.current_stage}</span></td>
+                <td>
+                  <button class="btn-green" onclick="autoLogin('${u.email}', '${u.phone}')">Login</button>
+                  <button class="btn-blue" onclick="advanceStageAdmin(${u.id}, '${u.current_stage}')">Advance</button>
+                  ${renderStageActionButtonsAdmin(u)}
+                </td>
+              </tr>
+            `;
+          }
+        }
+        html += `</tbody></table>`;
+      }
+      
+      container.innerHTML = html;
+    }
+
+    function renderStageActionButtonsAdmin(u) {
+      if (u.current_stage === 'MASTERCLASS') {
+        return `<button class="btn-orange" onclick="markMasterclassAttendance(${u.id}, 'Attended')">Mark Attended</button>`;
+      }
+      if (u.current_stage === 'GAP') {
+        return `<button class="btn-orange" onclick="completeGap(${u.id})">Complete GAP</button>`;
+      }
+      if (u.current_stage === 'BRIDGE') {
+        return `<button class="btn-orange" onclick="completeBridge(${u.id})">Complete Bridge</button>`;
+      }
+      if (u.current_stage === 'CERTIFICATION') {
+        return `<button class="btn-orange" onclick="certifyPartner(${u.id})">Certify Graduate</button>`;
+      }
+      if (u.current_stage === 'PARTNER') {
+        return `<button class="btn-orange" onclick="addDeliveryParticipant(${u.id}, '${u.name}')">+ Credit Delivery Earning</button>`;
+      }
+      return '';
+    }
+
+    async function advanceStageAdmin(userId, currentStage) {
+      const stages = ['INVITED', 'MASTERCLASS', 'REGISTRATION', 'GAP', 'PAYMENT_1', 'BRIDGE', 'PAYMENT_2', 'CERTIFICATION', 'PARTNER'];
+      const currentIdx = stages.indexOf(currentStage);
+      if (currentIdx === -1 || currentIdx === stages.length - 1) {
+        log(`User is already a partner or at an invalid stage.`, true);
+        return;
+      }
+      const nextStage = stages[currentIdx + 1];
+      log(`Admin overriding user ${userId} stage to ${nextStage}...`);
+      
+      try {
+        const res = await fetch('/api/admin/change-stage', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, newStage: nextStage })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          log(data.message);
+          await loadDashboardData();
+        } else {
+          log(`Failed: ${data.error}`, true);
+        }
+      } catch (err) {
+        log(`Error: ${err.message}`, true);
+      }
+    }
+
+    async function markMasterclassAttendance(userId, status) {
+      log(`Admin marking Masterclass attendance as '${status}' for user ${userId}...`);
+      try {
+        const res = await fetch('/api/admin/masterclass/attendance', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, status })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          log(data.message);
+          await loadDashboardData();
+        } else {
+          log(`Error: ${data.error}`, true);
+        }
+      } catch (err) {
+        log(`Error: ${err.message}`, true);
+      }
+    }
+
+    async function completeGap(userId) {
+      log(`Admin completing GAP session for user ${userId}...`);
+      try {
+        const res = await fetch('/api/admin/gap/complete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          log(data.message);
+          await loadDashboardData();
+        } else {
+          log(`Error: ${data.error}`, true);
+        }
+      } catch (err) {
+        log(`Error: ${err.message}`, true);
+      }
+    }
+
+    async function completeBridge(userId) {
+      log(`Admin completing Bridge curriculum for user ${userId}...`);
+      try {
+        const res = await fetch('/api/admin/bridge/complete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          log(data.message);
+          await loadDashboardData();
+        } else {
+          log(`Error: ${data.error}`, true);
+        }
+      } catch (err) {
+        log(`Error: ${err.message}`, true);
+      }
+    }
+
+    async function certifyPartner(userId) {
+      log(`Admin certifying partner and generating unique referral link for user ${userId}...`);
+      try {
+        const res = await fetch('/api/admin/certify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          log(`Success: certified and activated partner. Referral Link: ${data.referralLink}`);
+          await loadDashboardData();
+        } else {
+          log(`Error: ${data.error}`, true);
+        }
+      } catch (err) {
+        log(`Error: ${err.message}`, true);
+      }
+    }
+
+    async function addDeliveryParticipant(partnerId, partnerName) {
+      const participantName = prompt("Enter Coaching Participant Full Name:");
+      if (!participantName) return;
+      const participantEmail = prompt("Enter Coaching Participant Email (optional):") || "";
+      
+      log(`Crediting ₹10,000 delivery income to ${partnerName}...`);
+      try {
+        const res = await fetch('/api/admin/delivery/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ partnerId, participantName, participantEmail })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          log(data.message);
+          await loadDashboardData();
+        } else {
+          log(`Error: ${data.error}`, true);
+        }
+      } catch (err) {
+        log(`Error: ${err.message}`, true);
+      }
+    }
+
+    // Client Dashboard Self Actions
+    function renderClientSelfActions(user) {
+      const actionsDiv = document.getElementById('client-stage-actions');
+      let html = '';
+
+      switch (user.current_stage) {
+        case 'INVITED':
+          html = `<p style="color:#666;font-style:italic;">Your stage is INVITED. Please wait for an administrator to add you to a batch and open your Masterclass scheduler.</p>`;
+          break;
+        case 'MASTERCLASS':
+          html = `<p>Your Masterclass online meeting room is ready. Join the mock session.</p>
+                  <button class="btn-blue" onclick="window.open('https://zoom.us/j/masterclass-mock-id')">Join Zoom Meeting</button>`;
+          break;
+        case 'REGISTRATION':
+          html = `<p>Complete your certified Partner application form to proceed to GAP online.</p>
+                  <button class="btn-green" onclick="submitClientRegistration()">Complete Registration Form</button>`;
+          break;
+        case 'GAP':
+          html = `<p>GAP online session scheduled. Join the meeting to unlock first payment.</p>
+                  <button class="btn-blue" onclick="window.open('https://zoom.us/j/gap-mock-id')">Join Zoom Meeting</button>`;
+          break;
+        case 'PAYMENT_1':
+          html = `<p>Pay the first installment of ₹1,00,000 to unlock Chennai Bridge Curriculum.</p>
+                  <button class="btn-green" onclick="simulateClientPayment('PAYMENT_1')">Pay ₹1,00,000 (Razorpay Mock)</button>`;
+          break;
+        case 'BRIDGE':
+          html = `<p>Bridge Curriculum in Chennai is scheduled. Confirm your travel checklist.</p>
+                  <button class="btn-blue" onclick="alert(' Chennai Travel checklist: ID Card, Laptop, notebook, hotel bookings.')">View Chennai Venue & Details</button>`;
+          break;
+        case 'PAYMENT_2':
+          html = `<p>Pay the final installment of ₹2,00,000 to obtain partner certification credentials.</p>
+                  <button class="btn-green" onclick="simulateClientPayment('PAYMENT_2')">Pay Final ₹2,00,000 (Razorpay Mock)</button>`;
+          break;
+        case 'CERTIFICATION':
+          html = `<p>Your Final certification is ready! Awaiting Partner activation by operations.</p>`;
+          break;
+        case 'PARTNER':
+          html = `<p style="color:green;font-weight:bold;">You are an active Life Design Partner!</p>
+                  <button class="btn-blue" onclick="alert('Referral Tree view is available in the menu links!')">Access Partner Commissions Panel</button>`;
+          break;
+      }
+
+      actionsDiv.innerHTML = html;
+    }
+
+    async function submitClientRegistration() {
+      log('Client submitting registration details...');
+      try {
+        const res = await fetch('/api/register', { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+          log(data.message);
+          await checkSession();
+          await loadDashboardData();
+        } else {
+          log(`Failed: ${data.error}`, true);
+        }
+      } catch (err) {
+        log(`Error: ${err.message}`, true);
+      }
+    }
+
+    async function simulateClientPayment(paymentType) {
+      log(`Initiating checkout order for ${paymentType}...`);
+      try {
+        // 1. Create order
+        const createRes = await fetch('/api/payment/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: activeUser.id, paymentType })
+        });
+        const createData = await createRes.json();
+        if (!createRes.ok) {
+          log(`Failed to create order: ${createData.error}`, true);
+          return;
+        }
+
+        log(`Mock checkout loaded. Order ID: ${createData.orderId}. Verifying payment signature...`);
+
+        // 2. Verify payment signature
+        const verifyRes = await fetch('/api/payment/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: activeUser.id,
+            paymentId: `pay_mock_${Date.now()}`,
+            orderId: createData.orderId,
+            signature: `sig_mock_${Date.now()}`
+          })
+        });
+        const verifyData = await verifyRes.json();
+        
+        if (verifyRes.ok) {
+          log(`Success: Payment complete. Invoice URL: ${verifyData.invoiceUrl}`);
+          log(`Receipt URL: ${verifyData.receiptUrl}`);
+          window.open(verifyData.invoiceUrl);
+          await checkSession();
+          await loadDashboardData();
+        } else {
+          log(`Verification failed: ${verifyData.error}`, true);
+        }
+      } catch (err) {
+        log(`Error: ${err.message}`, true);
+      }
+    }
+
+    window.onload = async () => {
+      await checkSession();
+      // Try to load dashboard (if session has admin credentials)
+      await loadDashboardData();
+    };
+  </script>
+</body>
+</html>

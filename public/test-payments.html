@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>LBDA Test Page - Payments & Invoices</title>
+  <style>
+    body { font-family: monospace; padding: 20px; max-width: 800px; margin: 0 auto; background: #fafafa; }
+    h1 { border-bottom: 2px solid #333; padding-bottom: 5px; }
+    .card { background: #fff; border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 4px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 13px; }
+    th { background: #eee; }
+    select, button, input { padding: 6px; font-family: monospace; }
+    button { background: #333; color: white; border: none; cursor: pointer; font-weight: bold; }
+    button:hover { background: #555; }
+    .btn-blue { background: #007bff; }
+    .btn-blue:hover { background: #0069d9; }
+    .btn-green { background: #28a745; }
+    .btn-green:hover { background: #218838; }
+    .log-panel { background: #000; color: #0f0; padding: 12px; font-size: 12px; max-height: 250px; overflow-y: auto; border-radius: 4px; margin-top: 10px; }
+    .badge { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 11px; background: #888; color: #fff; font-weight: bold; }
+    .badge-success { background: #28a745; }
+    .badge-pending { background: #ffc107; color: #000; }
+  </style>
+</head>
+<body>
+  <h1>LBDA Payments & Invoices Sandbox</h1>
+
+  <!-- Select User & Stage -->
+  <div class="card">
+    <h3>1. Select User & Check Eligibility</h3>
+    <label>Choose User:</label>
+    <select id="user-select" onchange="checkUserEligibility()">
+      <option value="">-- Select a User --</option>
+    </select>
+    <div id="eligibility-info" style="margin-top: 15px; font-weight: bold; color: #444;"></div>
+  </div>
+
+  <!-- Create Payment Card -->
+  <div class="card id-create-card" style="display:none;" id="create-card">
+    <h3>2. Create Razorpay Order</h3>
+    <p>Target Payment: <span id="payment-target-label" class="badge">N/A</span></p>
+    <p>Amount: <span id="payment-amount-label">N/A</span></p>
+    <button class="btn-blue" onclick="createOrder()">Create Order (API /api/payment/create)</button>
+  </div>
+
+  <!-- Verify Payment Card -->
+  <div class="card id-verify-card" style="display:none;" id="verify-card">
+    <h3>3. Simulate Razorpay Verification Callback</h3>
+    <p>Order ID: <strong id="order-id-label">N/A</strong></p>
+    <p>Simulated Gateway Payment ID: <input type="text" id="payment-id-input" value="pay_mock_1234567890"></p>
+    <button class="btn-green" onclick="verifyPayment()">Confirm Success (API /api/payment/verify)</button>
+  </div>
+
+  <!-- Invoices Log Table -->
+  <div class="card">
+    <h3>4. Generated GST Invoices & Receipts</h3>
+    <table id="payments-table">
+      <thead>
+        <tr>
+          <th>User</th>
+          <th>Type</th>
+          <th>Amount</th>
+          <th>Status</th>
+          <th>Invoice</th>
+          <th>Receipt</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td colspan="6">Loading payment history...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Console Log Panel -->
+  <h3>System Logs</h3>
+  <div class="log-panel" id="log-panel">Ready.</div>
+
+  <script>
+    let activeUser = null;
+    let activeOrder = null;
+
+    function log(message, isError = false) {
+      const panel = document.getElementById('log-panel');
+      const time = new Date().toLocaleTimeString();
+      const style = isError ? 'color: #ff3333;' : '';
+      panel.innerHTML += `<div style="${style}">[${time}] ${message}</div>`;
+      panel.scrollTop = panel.scrollHeight;
+    }
+
+    async function loadUsers() {
+      try {
+        const res = await fetch('/api/admin/data');
+        const data = await res.json();
+        
+        // Populate select dropdown
+        const select = document.getElementById('user-select');
+        select.innerHTML = '<option value="">-- Select a User --</option>';
+        data.users.forEach(u => {
+          select.innerHTML += `<option value="${u.id}" data-stage="${u.current_stage}" data-name="${u.name}">${u.name} (Stage: ${u.current_stage})</option>`;
+        });
+
+        // Populate Payments Table
+        const tbody = document.querySelector('#payments-table tbody');
+        tbody.innerHTML = '';
+        if (data.payments.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6">No payments processed yet.</td></tr>';
+        } else {
+          data.payments.forEach(p => {
+            const invoiceLink = p.invoice_url ? `<a href="${p.invoice_url}" target="_blank">Download Invoice</a>` : 'N/A';
+            const receiptLink = p.receipt_url ? `<a href="${p.receipt_url}" target="_blank">Download Receipt</a>` : 'N/A';
+            const statusBadge = p.status === 'Success' ? '<span class="badge badge-success">Success</span>' : `<span class="badge badge-pending">${p.status}</span>`;
+            
+            tbody.innerHTML += `
+              <tr>
+                <td><strong>${p.user_name}</strong></td>
+                <td>${p.payment_type}</td>
+                <td>₹${p.amount.toLocaleString('en-IN')}</td>
+                <td>${statusBadge}</td>
+                <td>${invoiceLink}</td>
+                <td>${receiptLink}</td>
+              </tr>
+            `;
+          });
+        }
+      } catch (err) {
+        log('Failed loading setup: ' + err.message, true);
+      }
+    }
+
+    function checkUserEligibility() {
+      const select = document.getElementById('user-select');
+      const option = select.options[select.selectedIndex];
+      
+      // Reset view
+      document.getElementById('create-card').style.display = 'none';
+      document.getElementById('verify-card').style.display = 'none';
+      document.getElementById('eligibility-info').innerHTML = '';
+      
+      if (!option.value) {
+        activeUser = null;
+        return;
+      }
+
+      activeUser = {
+        id: option.value,
+        name: option.getAttribute('data-name'),
+        stage: option.getAttribute('data-stage')
+      };
+
+      const infoDiv = document.getElementById('eligibility-info');
+      const createCard = document.getElementById('create-card');
+      const targetLabel = document.getElementById('payment-target-label');
+      const amountLabel = document.getElementById('payment-amount-label');
+
+      if (activeUser.stage === 'PAYMENT_1') {
+        infoDiv.innerHTML = `✅ Eligible: User is at PAYMENT_1 stage (₹1,00,000 Installment).`;
+        targetLabel.innerText = 'PAYMENT_1';
+        targetLabel.className = 'badge badge-pending';
+        amountLabel.innerText = '₹1,00,000';
+        createCard.style.display = 'block';
+      } else if (activeUser.stage === 'PAYMENT_2') {
+        infoDiv.innerHTML = `✅ Eligible: User is at PAYMENT_2 stage (₹2,00,000 Installment).`;
+        targetLabel.innerText = 'PAYMENT_2';
+        targetLabel.className = 'badge badge-pending';
+        amountLabel.innerText = '₹2,00,000';
+        createCard.style.display = 'block';
+      } else {
+        infoDiv.innerHTML = `❌ Ineligible: Stage "${activeUser.stage}" does not accept payments. Move them to PAYMENT_1 or PAYMENT_2 first using the Stage Engine page.`;
+      }
+    }
+
+    async function createOrder() {
+      if (!activeUser) return;
+      
+      log(`Creating payment order for ${activeUser.name} (${activeUser.stage})...`);
+      
+      try {
+        const res = await fetch('/api/payment/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: activeUser.id, paymentType: activeUser.stage })
+        });
+        
+        const data = await res.json();
+        if (data.success) {
+          activeOrder = data;
+          log(`Order created: ${data.orderId} (Amount: ₹${data.amount})`);
+          
+          document.getElementById('order-id-label').innerText = data.orderId;
+          document.getElementById('verify-card').style.display = 'block';
+        } else {
+          log('Create Order Failed: ' + data.error, true);
+        }
+      } catch (err) {
+        log('Request error: ' + err.message, true);
+      }
+    }
+
+    async function verifyPayment() {
+      if (!activeUser || !activeOrder) return;
+      
+      const paymentId = document.getElementById('payment-id-input').value;
+      log(`Verifying payment for Order ${activeOrder.orderId}...`);
+      
+      try {
+        const res = await fetch('/api/payment/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: activeUser.id,
+            paymentId: paymentId,
+            orderId: activeOrder.orderId,
+            signature: 'mock_signature_string'
+          })
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          log(`Verification Successful! Next Stage: ${data.nextStage}`);
+          log(`Invoice: <a href="${data.invoiceUrl}" target="_blank">View Invoice</a> | Receipt: <a href="${data.receiptUrl}" target="_blank">View Receipt</a>`);
+          
+          // Reset cards
+          document.getElementById('create-card').style.display = 'none';
+          document.getElementById('verify-card').style.display = 'none';
+          
+          // Refresh lists
+          await loadUsers();
+        } else {
+          log('Verification failed: ' + data.error, true);
+        }
+      } catch (err) {
+        log('Verify Request error: ' + err.message, true);
+      }
+    }
+
+    window.onload = loadUsers;
+  </script>
+</body>
+</html>

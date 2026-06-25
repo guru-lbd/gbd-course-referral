@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>LBDA Test Page - Authentication</title>
+  <style>
+    body { font-family: monospace; padding: 20px; max-width: 600px; margin: 0 auto; background: #fafafa; }
+    h1 { border-bottom: 2px solid #333; padding-bottom: 5px; }
+    .card { background: #fff; border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 4px; }
+    input, button { padding: 8px; font-family: monospace; margin: 5px 0; width: 100%; box-sizing: border-box; }
+    button { background: #333; color: white; border: none; cursor: pointer; font-weight: bold; }
+    button:hover { background: #555; }
+    .log-panel { background: #000; color: #0f0; padding: 15px; font-size: 13px; max-height: 200px; overflow-y: auto; border-radius: 4px; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <h1>LBDA Test Auth Bench</h1>
+  
+  <!-- Active Session Info -->
+  <div class="card" id="session-card">
+    <h3>Active Session Status</h3>
+    <div id="session-info">Checking session...</div>
+    <button id="logout-btn" class="hidden" onclick="logout()">Logout Session</button>
+  </div>
+
+  <!-- Request OTP Form -->
+  <div class="card" id="request-card">
+    <h3>1. Request Double-OTP</h3>
+    <label>Email Address:</label>
+    <input type="email" id="email" placeholder="e.g. user1@test.com" value="user1@test.com">
+    <label>Phone Number:</label>
+    <input type="text" id="phone" placeholder="e.g. 9999990001" value="9999990001">
+    <button onclick="requestOtp()">Request Login Codes</button>
+  </div>
+
+  <!-- Verify OTP Form -->
+  <div class="card hidden" id="verify-card">
+    <h3>2. Verify Login Codes</h3>
+    <label>Email OTP:</label>
+    <input type="text" id="email-otp" placeholder="Enter 6-digit code">
+    <label>Phone OTP:</label>
+    <input type="text" id="phone-otp" placeholder="Enter 6-digit code">
+    <button onclick="verifyOtp()">Verify & Login</button>
+  </div>
+
+  <!-- Console Log Panel -->
+  <h3>System Event Logs</h3>
+  <div class="log-panel" id="log-panel">Ready.</div>
+
+  <script>
+    function log(message, isError = false) {
+      const panel = document.getElementById('log-panel');
+      const time = new Date().toLocaleTimeString();
+      const style = isError ? 'color: #ff3333;' : '';
+      panel.innerHTML += `<div style="${style}">[${time}] ${message}</div>`;
+      panel.scrollTop = panel.scrollHeight;
+    }
+
+    async function checkSession() {
+      try {
+        const res = await fetch('/api/user');
+        const data = await res.json();
+        const infoDiv = document.getElementById('session-info');
+        const logoutBtn = document.getElementById('logout-btn');
+        
+        if (data.authenticated) {
+          infoDiv.innerHTML = `
+            <strong>Authenticated User:</strong> ${data.user.name}<br>
+            <strong>Email:</strong> ${data.user.email}<br>
+            <strong>Role:</strong> ${data.user.role}<br>
+            <strong>Current Stage:</strong> ${data.user.current_stage}
+          `;
+          logoutBtn.classList.remove('hidden');
+          document.getElementById('request-card').classList.add('hidden');
+          document.getElementById('verify-card').classList.add('hidden');
+          log(`Session active for: ${data.user.email}`);
+        } else {
+          infoDiv.innerHTML = 'No active session (Guest).';
+          logoutBtn.classList.add('hidden');
+          document.getElementById('request-card').classList.remove('hidden');
+          log('No active session.');
+        }
+      } catch (err) {
+        log('Session check failed: ' + err.message, true);
+      }
+    }
+
+    async function requestOtp() {
+      const email = document.getElementById('email').value;
+      const phone = document.getElementById('phone').value;
+      
+      log(`Requesting OTP for ${email}...`);
+      
+      try {
+        const res = await fetch('/api/auth/request-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, phone })
+        });
+        
+        const data = await res.json();
+        if (data.success) {
+          log(data.message);
+          log('TIP: Check server terminal window to see the generated mock codes.');
+          document.getElementById('verify-card').classList.remove('hidden');
+        } else {
+          log('Denied: ' + data.message, true);
+        }
+      } catch (err) {
+        log('OTP request error: ' + err.message, true);
+      }
+    }
+
+    async function verifyOtp() {
+      const email = document.getElementById('email').value;
+      const emailOtp = document.getElementById('email-otp').value;
+      const phoneOtp = document.getElementById('phone-otp').value;
+      
+      log('Verifying verification codes...');
+      
+      try {
+        const res = await fetch('/api/auth/verify-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, emailOtp, phoneOtp })
+        });
+        
+        const data = await res.json();
+        if (data.success) {
+          log('Verification Success: ' + data.message);
+          document.getElementById('verify-card').classList.add('hidden');
+          await checkSession();
+        } else {
+          log('Verification Failed: ' + data.message, true);
+        }
+      } catch (err) {
+        log('Verify error: ' + err.message, true);
+      }
+    }
+
+    async function logout() {
+      log('Logging out...');
+      try {
+        const res = await fetch('/api/auth/logout', { method: 'POST' });
+        const data = await res.json();
+        log(data.message);
+        await checkSession();
+      } catch (err) {
+        log('Logout error: ' + err.message, true);
+      }
+    }
+
+    // Check session on load
+    window.onload = checkSession;
+  </script>
+</body>
+</html>

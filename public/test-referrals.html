@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>LBDA Test Page - Referral & Commission Engine</title>
+  <style>
+    body { font-family: monospace; padding: 20px; max-width: 800px; margin: 0 auto; background: #fafafa; }
+    h1 { border-bottom: 2px solid #333; padding-bottom: 5px; }
+    .row { display: flex; gap: 20px; }
+    .col-6 { flex: 1; min-width: 0; }
+    .card { background: #fff; border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 4px; }
+    input, button, select { padding: 6px; font-family: monospace; }
+    button { background: #333; color: white; border: none; cursor: pointer; font-weight: bold; }
+    button:hover { background: #555; }
+    .earnings-val { font-size: 24px; font-weight: bold; color: #28a745; margin: 10px 0; }
+    ul { padding-left: 20px; }
+    li { margin: 5px 0; }
+    .log-panel { background: #000; color: #0f0; padding: 12px; font-size: 12px; max-height: 200px; overflow-y: auto; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>LBDA Referral & Commission Bench</h1>
+
+  <!-- Partner Session Simulator -->
+  <div class="card">
+    <h3>1. Active Partner Session (Referrer)</h3>
+    <label>Simulate Logged In Partner:</label>
+    <select id="partner-select" onchange="switchPartner()">
+      <option value="user1@test.com">User 1 (Partner) - ID: 1</option>
+      <option value="user2@test.com">User 2 (Partner) - ID: 2</option>
+      <option value="user3@test.com">User 3 (Partner) - ID: 3</option>
+    </select>
+  </div>
+
+  <div class="row">
+    <!-- Earnings Stats -->
+    <div class="col-6">
+      <div class="card">
+        <h3>2. Earnings Statistics</h3>
+        <div>Direct Referral Commission:</div>
+        <div class="earnings-val" id="ref-earnings">₹0</div>
+        <div>Coaching Delivery Income:</div>
+        <div class="earnings-val" id="del-earnings">₹0</div>
+        <hr>
+        <div><strong>Total Accumulated Earnings:</strong></div>
+        <div class="earnings-val" id="total-earnings" style="color: #007bff;">₹0</div>
+      </div>
+    </div>
+
+    <!-- Record Delivery Participant -->
+    <div class="col-6">
+      <div class="card">
+        <h3>3. Record Coaching Delivery Participant</h3>
+        <p>Partner receives ₹10,000 per delivery participant.</p>
+        <label>Participant Name:</label><br>
+        <input type="text" id="participant-name" placeholder="e.g. John Doe" style="width: 100%; margin-bottom: 8px;"><br>
+        <label>Participant Email:</label><br>
+        <input type="email" id="participant-email" placeholder="e.g. john@doe.com" style="width: 100%; margin-bottom: 12px;"><br>
+        <button style="width: 100%;" onclick="addDeliveryParticipant()">Credit ₹10,000 Earning</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Referral Tree Card -->
+  <div class="card">
+    <h3>4. Downline Referral Tree</h3>
+    <div id="tree-container">Loading tree...</div>
+  </div>
+
+  <!-- System logs -->
+  <h3>System Logs</h3>
+  <div class="log-panel" id="log-panel">Ready.</div>
+
+  <script>
+    let activeEmail = 'user1@test.com';
+
+    function log(message, isError = false) {
+      const panel = document.getElementById('log-panel');
+      const time = new Date().toLocaleTimeString();
+      const style = isError ? 'color: #ff3333;' : '';
+      panel.innerHTML += `<div style="${style}">[${time}] ${message}</div>`;
+      panel.scrollTop = panel.scrollHeight;
+    }
+
+    async function switchPartner() {
+      activeEmail = document.getElementById('partner-select').value;
+      // Set session cookie
+      document.cookie = `session_email=${activeEmail}; path=/;`;
+      log(`Switched simulation session to: ${activeEmail}`);
+      await loadReferrals();
+    }
+
+    async function loadReferrals() {
+      try {
+        // Ensure session email cookie is set
+        document.cookie = `session_email=${activeEmail}; path=/;`;
+        
+        const res = await fetch('/api/referrals');
+        const data = await res.json();
+        
+        if (!data.success) {
+          log('Failed loading referrals: ' + data.error, true);
+          document.getElementById('tree-container').innerText = 'No downline tree (Ensure user has role/stage PARTNER).';
+          return;
+        }
+
+        // Render stats
+        document.getElementById('ref-earnings').innerText = `₹${data.stats.referralEarnings.toLocaleString('en-IN')}`;
+        document.getElementById('del-earnings').innerText = `₹${data.stats.deliveryEarnings.toLocaleString('en-IN')}`;
+        document.getElementById('total-earnings').innerText = `₹${data.stats.totalEarnings.toLocaleString('en-IN')}`;
+
+        // Render tree
+        const treeContainer = document.getElementById('tree-container');
+        if (data.downline.length === 0) {
+          treeContainer.innerHTML = '<em>No downline referrals recorded.</em>';
+        } else {
+          treeContainer.innerHTML = '<ul>' + renderNode(data.downline) + '</ul>';
+        }
+        log('Referral tree and earnings updated.');
+
+      } catch (err) {
+        log('Error loading data: ' + err.message, true);
+      }
+    }
+
+    function renderNode(nodes) {
+      let html = '';
+      nodes.forEach(node => {
+        const hasChildren = node.downline && node.downline.length > 0;
+        html += `
+          <li>
+            <strong>${node.name}</strong> (${node.email}) 
+            - Stage: <span style="color: blue;">${node.stage}</span>
+            ${node.referralCode ? `| Ref Code: <code>${node.referralCode}</code>` : ''}
+            ${hasChildren ? `<ul>${renderNode(node.downline)}</ul>` : ''}
+          </li>
+        `;
+      });
+      return html;
+    }
+
+    async function addDeliveryParticipant() {
+      const name = document.getElementById('participant-name').value;
+      const email = document.getElementById('participant-email').value;
+      
+      if (!name) {
+        alert('Participant name is required!');
+        return;
+      }
+
+      log(`Crediting coaching delivery for ${name}...`);
+      
+      try {
+        // Find partner ID from select element text or by checking session
+        const sessionRes = await fetch('/api/user');
+        const sessionData = await sessionRes.json();
+        
+        if (!sessionData.authenticated) {
+          log('Not authenticated.', true);
+          return;
+        }
+
+        const partnerId = sessionData.user.id;
+
+        const res = await fetch('/api/admin/delivery/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ partnerId, participantName: name, participantEmail: email })
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          log(data.message);
+          // Clear inputs
+          document.getElementById('participant-name').value = '';
+          document.getElementById('participant-email').value = '';
+          await loadReferrals();
+        } else {
+          log('Failed to add participant: ' + data.error, true);
+        }
+
+      } catch (err) {
+        log('Request error: ' + err.message, true);
+      }
+    }
+
+    // Set initial cookie and load on start
+    window.onload = async () => {
+      document.cookie = `session_email=${activeEmail}; path=/;`;
+      await loadReferrals();
+    };
+  </script>
+</body>
+</html>

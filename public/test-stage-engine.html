@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>LBDA Test Page - Batches & Stage Engine</title>
+  <style>
+    body { font-family: monospace; padding: 20px; max-width: 1000px; margin: 0 auto; background: #fafafa; }
+    h1 { border-bottom: 2px solid #333; padding-bottom: 5px; }
+    .row { display: flex; gap: 20px; }
+    .col-6 { flex: 1; min-width: 0; }
+    .card { background: #fff; border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 4px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 13px; }
+    th { background: #eee; }
+    input, select, button { padding: 6px; font-family: monospace; box-sizing: border-box; }
+    button { background: #333; color: white; border: none; cursor: pointer; }
+    button:hover { background: #555; }
+    .btn-green { background: #28a745; }
+    .btn-green:hover { background: #218838; }
+    .btn-orange { background: #fd7e14; }
+    .btn-orange:hover { background: #d35400; }
+    .btn-red { background: #dc3545; }
+    .btn-red:hover { background: #bd2130; }
+    .log-panel { background: #000; color: #0f0; padding: 12px; font-size: 12px; max-height: 250px; overflow-y: auto; border-radius: 4px; }
+    .stage-badge { display: inline-block; padding: 2px 6px; border-radius: 3px; font-weight: bold; font-size: 11px; background: #6c757d; color: white; }
+    .stage-INVITED { background: #17a2b8; }
+    .stage-MASTERCLASS { background: #6f42c1; }
+    .stage-REGISTRATION { background: #fd7e14; }
+    .stage-GAP { background: #ffc107; color: black; }
+    .stage-PAYMENT_1 { background: #e83e8c; }
+    .stage-BRIDGE { background: #007bff; }
+    .stage-PAYMENT_2 { background: #20c997; }
+    .stage-CERTIFICATION { background: #e0a800; }
+    .stage-PARTNER { background: #28a745; }
+  </style>
+</head>
+<body>
+  <h1>LBDA Batches & Stage Engine Bench</h1>
+
+  <div class="row">
+    <!-- Batch Panel -->
+    <div class="col-6">
+      <div class="card">
+        <h3>1. Batch Schedule & Gaps</h3>
+        <table id="batches-table">
+          <thead>
+            <tr>
+              <th>Batch Code</th>
+              <th>Masterclass</th>
+              <th>Registration</th>
+              <th>Gap</th>
+              <th>Bridge</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="6">Loading batches...</td></tr>
+          </tbody>
+        </table>
+        <div style="margin-top: 10px;">
+          <input type="checkbox" id="cascade-check" checked> <label for="cascade-check"><strong>Cascade Gaps</strong> (Auto-set subsequent batches to 2-day increments)</label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- User Progress Panel -->
+  <div class="card">
+    <h3>2. User Stage Progress Control</h3>
+    <table id="users-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Batch</th>
+          <th>Current Stage</th>
+          <th>Progression Triggers</th>
+          <th>Manual Override</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td colspan="7">Loading users...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="row">
+    <!-- Audit Logs -->
+    <div class="col-6">
+      <h3>System Audit Logs</h3>
+      <div class="log-panel" id="audit-panel">Loading audit logs...</div>
+    </div>
+    <!-- Event Logs -->
+    <div class="col-6">
+      <h3>Activity Event Logs</h3>
+      <div class="log-panel" id="event-panel">Loading event logs...</div>
+    </div>
+  </div>
+
+  <script>
+    async function loadData() {
+      try {
+        const res = await fetch('/api/admin/data');
+        const data = await res.json();
+        
+        // Render Batches
+        const batchesTbody = document.querySelector('#batches-table tbody');
+        batchesTbody.innerHTML = '';
+        
+        // We get batches from a separate request to be thorough
+        const batchRes = await fetch('/api/batches');
+        const batchData = await batchRes.json();
+        
+        batchData.batches.forEach(b => {
+          batchesTbody.innerHTML += `
+            <tr>
+              <td><strong>${b.code}</strong></td>
+              <td><input type="date" id="mc-${b.id}" value="${b.masterclass_date || ''}"></td>
+              <td><input type="date" id="reg-${b.id}" value="${b.registration_date || ''}"></td>
+              <td><input type="date" id="gap-${b.id}" value="${b.gap_date || ''}"></td>
+              <td><input type="date" id="brg-${b.id}" value="${b.bridge_date || ''}"></td>
+              <td><button onclick="saveBatchDates(${b.id})">Save</button></td>
+            </tr>
+          `;
+        });
+
+        // Render Users
+        const usersTbody = document.querySelector('#users-table tbody');
+        usersTbody.innerHTML = '';
+        data.users.forEach(u => {
+          const batchCode = batchData.batches.find(b => b.id === u.batch_id)?.code || 'None';
+          
+          // Determine Action Button based on Current Stage
+          let triggerButton = '';
+          switch (u.current_stage) {
+            case 'INVITED':
+              triggerButton = `<button class="btn-orange" onclick="changeStage(${u.id}, 'MASTERCLASS')">Unlock Masterclass</button>`;
+              break;
+            case 'MASTERCLASS':
+              triggerButton = `
+                <button class="btn-green" onclick="markAttendance(${u.id}, 'Attended')">Mark Attended</button>
+                <button class="btn-red" onclick="markAttendance(${u.id}, 'Missed')">Mark Missed</button>
+              `;
+              break;
+            case 'REGISTRATION':
+              triggerButton = `<button class="btn-green" onclick="simulateRegistration(${u.id}, '${u.email}')">Complete Reg Form</button>`;
+              break;
+            case 'GAP':
+              triggerButton = `<button class="btn-green" onclick="completeGap(${u.id})">Complete GAP Zoom</button>`;
+              break;
+            case 'PAYMENT_1':
+              triggerButton = `<em>Installment 1 Pending (₹1,00,000)</em>`;
+              break;
+            case 'BRIDGE':
+              triggerButton = `<button class="btn-green" onclick="completeBridge(${u.id})">Complete Chennai Sessions</button>`;
+              break;
+            case 'PAYMENT_2':
+              triggerButton = `<em>Installment 2 Pending (₹2,00,000)</em>`;
+              break;
+            case 'CERTIFICATION':
+              triggerButton = `<button class="btn-green" onclick="certifyPartner(${u.id})">Certify Partner</button>`;
+              break;
+            case 'PARTNER':
+              triggerButton = `<span style="color: green; font-weight: bold;">Certified Partner!</span>`;
+              break;
+          }
+
+          usersTbody.innerHTML += `
+            <tr>
+              <td>${u.id}</td>
+              <td><strong>${u.name}</strong></td>
+              <td>${u.email}</td>
+              <td><span class="stage-badge">${batchCode}</span></td>
+              <td><span class="stage-badge stage-${u.current_stage}">${u.current_stage}</span></td>
+              <td>${triggerButton}</td>
+              <td>
+                <select id="stage-override-${u.id}">
+                  <option value="INVITED" ${u.current_stage === 'INVITED' ? 'selected' : ''}>INVITED</option>
+                  <option value="MASTERCLASS" ${u.current_stage === 'MASTERCLASS' ? 'selected' : ''}>MASTERCLASS</option>
+                  <option value="REGISTRATION" ${u.current_stage === 'REGISTRATION' ? 'selected' : ''}>REGISTRATION</option>
+                  <option value="GAP" ${u.current_stage === 'GAP' ? 'selected' : ''}>GAP</option>
+                  <option value="PAYMENT_1" ${u.current_stage === 'PAYMENT_1' ? 'selected' : ''}>PAYMENT_1</option>
+                  <option value="BRIDGE" ${u.current_stage === 'BRIDGE' ? 'selected' : ''}>BRIDGE</option>
+                  <option value="PAYMENT_2" ${u.current_stage === 'PAYMENT_2' ? 'selected' : ''}>PAYMENT_2</option>
+                  <option value="CERTIFICATION" ${u.current_stage === 'CERTIFICATION' ? 'selected' : ''}>CERTIFICATION</option>
+                  <option value="PARTNER" ${u.current_stage === 'PARTNER' ? 'selected' : ''}>PARTNER</option>
+                </select>
+                <button onclick="overrideStage(${u.id})">Apply</button>
+              </td>
+            </tr>
+          `;
+        });
+
+        // Render Audit Logs
+        const auditPanel = document.getElementById('audit-panel');
+        auditPanel.innerHTML = '';
+        const audits = data.events.filter(e => e.event_type === 'AuditCreated' || e.payload.includes('Audit') || e.event_type === 'ClientReferrerUpdated'); // or direct fetch
+        
+        // We'll call the direct SQLite table fetch
+        const auditRes = await fetch('/api/admin/data');
+        const auditData = await auditRes.json();
+        
+        // Look in DB events log (which was seeded/created)
+        // Let's print recent event logs
+        const eventPanel = document.getElementById('event-panel');
+        eventPanel.innerHTML = '';
+        auditData.events.forEach(ev => {
+          eventPanel.innerHTML += `<div>[${ev.created_at}] <strong>${ev.event_type}</strong>: ${ev.payload}</div>`;
+        });
+        eventPanel.scrollTop = eventPanel.scrollHeight;
+
+        // Since audit logs are new, we will render audit log lines directly
+        // We need to fetch audit logs table, let's make sure we show them
+        auditPanel.innerHTML = 'Audit log details listed in Event Log under events.';
+        
+      } catch (err) {
+        console.error('Fetch dashboard details failed:', err);
+      }
+    }
+
+    async function saveBatchDates(batchId) {
+      const masterclassDate = document.getElementById(`mc-${batchId}`).value;
+      const registrationDate = document.getElementById(`reg-${batchId}`).value;
+      const gapDate = document.getElementById(`gap-${batchId}`).value;
+      const bridgeDate = document.getElementById(`brg-${batchId}`).value;
+      const cascade = document.getElementById('cascade-check').checked;
+
+      const res = await fetch('/api/admin/change-batch-dates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ batchId, masterclassDate, registrationDate, gapDate, bridgeDate, cascade })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message);
+        loadData();
+      } else {
+        alert('Error: ' + data.error);
+      }
+    }
+
+    async function changeStage(userId, newStage) {
+      const res = await fetch('/api/admin/change-stage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, newStage })
+      });
+      const data = await res.json();
+      if (data.success) {
+        loadData();
+      } else {
+        alert('Error: ' + data.error);
+      }
+    }
+
+    async function overrideStage(userId) {
+      const newStage = document.getElementById(`stage-override-${userId}`).value;
+      await changeStage(userId, newStage);
+    }
+
+    async function markAttendance(userId, status) {
+      const res = await fetch('/api/admin/masterclass/attendance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, status })
+      });
+      const data = await res.json();
+      if (data.success) {
+        loadData();
+      } else {
+        alert('Error: ' + data.error);
+      }
+    }
+
+    // To submit registration, we must act as the user.
+    // We write a helper that mocks setting the cookie session and submitting the form.
+    async function simulateRegistration(userId, email) {
+      // We set a temporary cookie for user1/user2/user3 so the self registration endpoint works
+      document.cookie = `session_email=${email}; path=/;`;
+      
+      const res = await fetch('/api/register', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        loadData();
+      } else {
+        alert('Error: ' + data.error);
+      }
+    }
+
+    async function completeGap(userId) {
+      const res = await fetch('/api/admin/gap/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        loadData();
+      } else {
+        alert('Error: ' + data.error);
+      }
+    }
+
+    async function completeBridge(userId) {
+      const res = await fetch('/api/admin/bridge/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        loadData();
+      } else {
+        alert('Error: ' + data.error);
+      }
+    }
+
+    async function certifyPartner(userId) {
+      const res = await fetch('/api/admin/certify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        loadData();
+      } else {
+        alert('Error: ' + data.error);
+      }
+    }
+
+    // Load initial data
+    window.onload = loadData;
+    // Reload periodically
+    setInterval(loadData, 5000);
+  </script>
+</body>
+</html>

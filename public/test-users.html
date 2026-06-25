@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>LBDA Test Page - Admin Console & User CRUD</title>
+  <style>
+    body { font-family: monospace; padding: 20px; max-width: 1100px; margin: 0 auto; background: #fafafa; }
+    h1 { border-bottom: 2px solid #333; padding-bottom: 5px; }
+    .row { display: flex; gap: 20px; }
+    .col-4 { width: 33.33%; }
+    .col-8 { width: 66.66%; }
+    .col-12 { width: 100%; }
+    .card { background: #fff; border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 4px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 13px; }
+    th { background: #eee; }
+    input, select, button { padding: 6px; font-family: monospace; box-sizing: border-box; margin: 2px 0; }
+    button { background: #333; color: white; border: none; cursor: pointer; font-weight: bold; }
+    button:hover { background: #555; }
+    .btn-green { background: #28a745; }
+    .btn-green:hover { background: #218838; }
+    .btn-red { background: #dc3545; }
+    .btn-red:hover { background: #bd2130; }
+    .btn-orange { background: #fd7e14; }
+    .btn-orange:hover { background: #e36209; }
+    .log-panel { background: #000; color: #0f0; padding: 12px; font-size: 12px; max-height: 250px; overflow-y: auto; border-radius: 4px; margin-top: 15px; }
+    .badge { display: inline-block; padding: 2px 6px; border-radius: 3px; font-weight: bold; font-size: 11px; color: white; }
+    .badge-user { background: #6c757d; }
+    .badge-ops { background: #007bff; }
+    .badge-finance { background: #17a2b8; }
+    .badge-md { background: #dc3545; }
+    .badge-stage { background: #6f42c1; }
+    .hidden { display: none; }
+    .modal-backdrop { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; }
+  </style>
+</head>
+<body>
+  <h1>LBDA Admin Console & User CRUD Bench</h1>
+
+  <!-- Navigation Benches Links -->
+  <div style="margin-bottom: 20px;">
+    <strong>Other Benches:</strong> 
+    <a href="/test-auth.html">Authentication</a> | 
+    <a href="/test-stage-engine.html">Batches & Stages</a> | 
+    <a href="/test-payments.html">Payments</a> | 
+    <a href="/test-referrals.html">Referral Tree</a> | 
+    <a href="/test-notifications.html">Notifications</a> |
+    <a href="/admin.html">Main Dashboard</a>
+  </div>
+
+  <div class="row">
+    <!-- Session and Controls Column -->
+    <div class="col-4">
+      <!-- Active Session Status -->
+      <div class="card">
+        <h3>1. Active Session Status</h3>
+        <div id="session-info">Checking session...</div>
+        <div style="margin-top: 10px;">
+          <button onclick="logout()">Logout Current Session</button>
+        </div>
+      </div>
+
+      <!-- Quick Role Dev Login Presets -->
+      <div class="card">
+        <h3>2. Quick Dev Login Presets</h3>
+        <p style="font-size: 11px; color: #666; margin-top: 0;">Bypass manual OTPs using server debug memory.</p>
+        <div style="display: flex; flex-direction: column; gap: 5px;">
+          <button class="btn-green" onclick="autoLogin('md@test.com', '9999990099')">Login as MD (md@test.com)</button>
+          <button class="btn-green" onclick="autoLogin('ops@test.com', '9999990088')">Login as OPERATIONS (ops@test.com)</button>
+          <button class="btn-green" onclick="autoLogin('finance@test.com', '9999990077')">Login as FINANCE (finance@test.com)</button>
+          <button class="btn-green" onclick="autoLogin('user1@test.com', '9999990001')">Login as USER (user1@test.com)</button>
+        </div>
+      </div>
+
+      <!-- Settings Panel -->
+      <div class="card">
+        <h3>3. System Settings</h3>
+        <form id="settings-form" onsubmit="saveSettings(event)">
+          <label>Friend Discount Enabled:</label><br>
+          <select id="setting-discount-enabled">
+            <option value="true">True</option>
+            <option value="false">False</option>
+          </select><br>
+          <label>Friend Discount %:</label><br>
+          <input type="number" id="setting-discount-percent" style="width: 100%;" min="0" max="100"><br>
+          <label>Commission Enabled:</label><br>
+          <select id="setting-commission-enabled">
+            <option value="true">True</option>
+            <option value="false">False</option>
+          </select><br>
+          <label>Commission Amount (₹):</label><br>
+          <input type="number" id="setting-commission-amount" style="width: 100%;" min="0"><br>
+          <button type="submit" style="margin-top: 10px; width: 100%;" class="btn-orange">Save Settings</button>
+        </form>
+      </div>
+
+      <!-- Dangerous Controls (MD Only) -->
+      <div class="card">
+        <h3>4. System Controls (MD Only)</h3>
+        <div style="display: flex; flex-direction: column; gap: 5px;">
+          <button class="btn-red" onclick="resetDatabase()">Reset Database to Seeds</button>
+          <button class="btn-red" onclick="clearActivityLogs()">Clear Event Activity Logs</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Users CRUD Column -->
+    <div class="col-8">
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h3>User CRUD Directory</h3>
+          <button class="btn-green" onclick="showCreateModal()">+ Create/Invite User</button>
+        </div>
+        <table id="users-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Name / Contacts</th>
+              <th>Role</th>
+              <th>Stage</th>
+              <th>Batch</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="6">Loading users...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Event Log Panel -->
+  <div class="col-12">
+    <h3>Developer Output logs</h3>
+    <div class="log-panel" id="log-panel">Ready.</div>
+  </div>
+
+  <!-- CREATE USER MODAL -->
+  <div id="create-modal" class="modal-backdrop hidden">
+    <div class="card" style="width: 400px;">
+      <h3>Create New User / Graduate Invitation</h3>
+      <form onsubmit="createUser(event)">
+        <label>Full Name:</label><br>
+        <input type="text" id="create-name" style="width: 100%;" required><br>
+        <label>Email Address:</label><br>
+        <input type="email" id="create-email" style="width: 100%;" required><br>
+        <label>Phone Number:</label><br>
+        <input type="text" id="create-phone" style="width: 100%;" required><br>
+        <label>Assign Batch:</label><br>
+        <select id="create-batch" style="width: 100%;">
+          <!-- Populated dynamically -->
+        </select><br>
+        <label>Role:</label><br>
+        <select id="create-role" style="width: 100%;">
+          <option value="USER">USER</option>
+          <option value="OPERATIONS">OPERATIONS</option>
+          <option value="FINANCE">FINANCE</option>
+          <option value="MD">MD</option>
+          <option value="PARTNER">PARTNER</option>
+        </select><br>
+        <label>Current Stage:</label><br>
+        <select id="create-stage" style="width: 100%;">
+          <option value="INVITED">INVITED</option>
+          <option value="MASTERCLASS">MASTERCLASS</option>
+          <option value="REGISTRATION">REGISTRATION</option>
+          <option value="GAP">GAP</option>
+          <option value="PAYMENT_1">PAYMENT_1</option>
+          <option value="BRIDGE">BRIDGE</option>
+          <option value="PAYMENT_2">PAYMENT_2</option>
+          <option value="CERTIFICATION">CERTIFICATION</option>
+          <option value="PARTNER">PARTNER</option>
+        </select><br>
+        <div style="margin-top: 15px; display: flex; justify-content: flex-end; gap: 5px;">
+          <button type="button" onclick="closeCreateModal()">Cancel</button>
+          <button type="submit" class="btn-green">Create User</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- EDIT USER MODAL -->
+  <div id="edit-modal" class="modal-backdrop hidden">
+    <div class="card" style="width: 400px;">
+      <h3>Edit User details</h3>
+      <form onsubmit="updateUser(event)">
+        <input type="hidden" id="edit-original-email">
+        <label>Email Address (read-only):</label><br>
+        <input type="email" id="edit-email" style="width: 100%; background: #eee;" readonly><br>
+        <label>Full Name:</label><br>
+        <input type="text" id="edit-name" style="width: 100%;" required><br>
+        <label>Phone Number:</label><br>
+        <input type="text" id="edit-phone" style="width: 100%;" required><br>
+        <label>Assign Batch:</label><br>
+        <select id="edit-batch" style="width: 100%;">
+          <!-- Populated dynamically -->
+        </select><br>
+        <label>Role:</label><br>
+        <select id="edit-role" style="width: 100%;">
+          <option value="USER">USER</option>
+          <option value="OPERATIONS">OPERATIONS</option>
+          <option value="FINANCE">FINANCE</option>
+          <option value="MD">MD</option>
+          <option value="PARTNER">PARTNER</option>
+        </select><br>
+        <label>Current Stage:</label><br>
+        <select id="edit-stage" style="width: 100%;">
+          <option value="INVITED">INVITED</option>
+          <option value="MASTERCLASS">MASTERCLASS</option>
+          <option value="REGISTRATION">REGISTRATION</option>
+          <option value="GAP">GAP</option>
+          <option value="PAYMENT_1">PAYMENT_1</option>
+          <option value="BRIDGE">BRIDGE</option>
+          <option value="PAYMENT_2">PAYMENT_2</option>
+          <option value="CERTIFICATION">CERTIFICATION</option>
+          <option value="PARTNER">PARTNER</option>
+        </select><br>
+        <div style="margin-top: 15px; display: flex; justify-content: flex-end; gap: 5px;">
+          <button type="button" onclick="closeEditModal()">Cancel</button>
+          <button type="submit" class="btn-orange">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    let batchesList = [];
+
+    function log(message, isError = false) {
+      const panel = document.getElementById('log-panel');
+      const time = new Date().toLocaleTimeString();
+      const style = isError ? 'color: #ff3333;' : '';
+      panel.innerHTML += `<div style="${style}">[${time}] ${message}</div>`;
+      panel.scrollTop = panel.scrollHeight;
+    }
+
+    async function checkSession() {
+      try {
+        const res = await fetch('/api/user');
+        const data = await res.json();
+        const infoDiv = document.getElementById('session-info');
+        
+        if (data.authenticated) {
+          infoDiv.innerHTML = `
+            <strong>Name:</strong> ${data.user.name}<br>
+            <strong>Email:</strong> ${data.user.email}<br>
+            <strong>Role:</strong> <span class="badge badge-${getRoleClass(data.user.role)}">${data.user.role}</span><br>
+            <strong>Stage:</strong> <span class="badge badge-stage">${data.user.current_stage}</span>
+          `;
+          log(`Session active: Logged in as ${data.user.email} (${data.user.role})`);
+        } else {
+          infoDiv.innerHTML = '<strong>Not Logged In</strong> (Guest Mode)';
+          log('Session check: Not logged in (Guest).');
+        }
+      } catch (err) {
+        log('Session check failed: ' + err.message, true);
+      }
+    }
+
+    function getRoleClass(role) {
+      if (role === 'MD') return 'md';
+      if (role === 'OPERATIONS') return 'ops';
+      if (role === 'FINANCE') return 'finance';
+      return 'user';
+    }
+
+    async function autoLogin(email, phone) {
+      log(`Triggering auto-login sequence for ${email}...`);
+      try {
+        // 1. Request OTP
+        const reqRes = await fetch('/api/auth/request-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, phone })
+        });
+        const reqData = await reqRes.json();
+        if (!reqData.success) {
+          log(`OTP request failed: ${reqData.message}`, true);
+          return;
+        }
+
+        // 2. Fetch OTPs from debug endpoint
+        log(`Retrieving active OTPs from debug store...`);
+        const debugRes = await fetch('/api/debug/otps');
+        const debugData = await debugRes.json();
+        const userOtp = debugData.otps[email.toLowerCase()];
+        
+        if (!userOtp) {
+          log(`No active OTP found in debug store for ${email}!`, true);
+          return;
+        }
+
+        // 3. Verify OTP
+        log(`Verifying codes: Email OTP = ${userOtp.emailOtp}, Phone OTP = ${userOtp.phoneOtp}...`);
+        const verifyRes = await fetch('/api/auth/verify-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email,
+            emailOtp: userOtp.emailOtp,
+            phoneOtp: userOtp.phoneOtp
+          })
+        });
+        const verifyData = await verifyRes.json();
+        
+        if (verifyData.success) {
+          log(`Auth Success: Logged in as ${email}`);
+          await checkSession();
+          await loadAdminDashboard();
+        } else {
+          log(`Verification failed: ${verifyData.message}`, true);
+        }
+      } catch (err) {
+        log(`Auto-login error: ${err.message}`, true);
+      }
+    }
+
+    async function logout() {
+      log('Logging out...');
+      try {
+        const res = await fetch('/api/auth/logout', { method: 'POST' });
+        const data = await res.json();
+        log(data.message);
+        await checkSession();
+        // Clear directory
+        const tbody = document.querySelector('#users-table tbody');
+        tbody.innerHTML = '<tr><td colspan="6">Not logged in. Clear session to view.</td></tr>';
+      } catch (err) {
+        log('Logout error: ' + err.message, true);
+      }
+    }
+
+    async function loadAdminDashboard() {
+      log('Loading admin dashboard data...');
+      try {
+        const res = await fetch('/api/admin/data');
+        if (res.status === 401 || res.status === 403) {
+          const errData = await res.json();
+          log(`Unauthorized: ${errData.error}`, true);
+          const tbody = document.querySelector('#users-table tbody');
+          tbody.innerHTML = `<tr><td colspan="6" style="color:red; font-weight:bold;">Access Denied: ${errData.error}</td></tr>`;
+          return;
+        }
+        
+        const data = await res.json();
+        if (!data.success) {
+          log(`Failed to load data: ${data.error}`, true);
+          return;
+        }
+
+        batchesList = data.batches || [];
+        populateBatchDropdowns();
+        renderUsers(data.users);
+        loadSettings();
+        log(`Loaded ${data.users.length} users and ${data.batches.length} batches.`);
+      } catch (err) {
+        log('Failed to fetch admin data: ' + err.message, true);
+      }
+    }
+
+    function populateBatchDropdowns() {
+      const createBatch = document.getElementById('create-batch');
+      const editBatch = document.getElementById('edit-batch');
+      
+      let html = '<option value="">No Batch Assigned</option>';
+      for (const b of batchesList) {
+        html += `<option value="${b.id}">${b.name} (${b.code})</option>`;
+      }
+      createBatch.innerHTML = html;
+      editBatch.innerHTML = html;
+    }
+
+    function renderUsers(users) {
+      const tbody = document.querySelector('#users-table tbody');
+      if (users.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6">No users found.</td></tr>';
+        return;
+      }
+
+      let html = '';
+      for (const u of users) {
+        html += `
+          <tr>
+            <td>${u.id}</td>
+            <td>
+              <strong>${u.name}</strong><br>
+              <span style="font-size:11px; color:#555;">${u.email}</span><br>
+              <span style="font-size:11px; color:#555;">${u.phone}</span>
+            </td>
+            <td><span class="badge badge-${getRoleClass(u.role)}">${u.role}</span></td>
+            <td><span class="badge badge-stage">${u.current_stage}</span></td>
+            <td>${u.batch_name || '<em style="color:#aaa;">None</em>'}</td>
+            <td>
+              <button onclick="showEditModal(${JSON.stringify(u).replace(/"/g, '&quot;')})">Edit</button>
+              <button class="btn-red" onclick="deleteUser('${u.email}')">Delete</button>
+            </td>
+          </tr>
+        `;
+      }
+      tbody.innerHTML = html;
+    }
+
+    async function loadSettings() {
+      try {
+        const res = await fetch('/api/admin/settings');
+        if (res.status === 200) {
+          const data = await res.json();
+          document.getElementById('setting-discount-enabled').value = String(data.friend_discount_enabled);
+          document.getElementById('setting-discount-percent').value = data.friend_discount_percent;
+          document.getElementById('setting-commission-enabled').value = String(data.commission_enabled);
+          document.getElementById('setting-commission-amount').value = data.commission_amount;
+        }
+      } catch (err) {
+        log('Failed to load settings: ' + err.message, true);
+      }
+    }
+
+    async function saveSettings(e) {
+      e.preventDefault();
+      const payload = {
+        friend_discount_enabled: document.getElementById('setting-discount-enabled').value === 'true',
+        friend_discount_percent: parseInt(document.getElementById('setting-discount-percent').value, 10),
+        commission_enabled: document.getElementById('setting-commission-enabled').value === 'true',
+        commission_amount: parseFloat(document.getElementById('setting-commission-amount').value)
+      };
+
+      log('Saving system settings...');
+      try {
+        const res = await fetch('/api/admin/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (res.ok) {
+          log('Success: ' + data.message);
+        } else {
+          log('Failed to save settings: ' + data.error, true);
+        }
+      } catch (err) {
+        log('Settings save error: ' + err.message, true);
+      }
+    }
+
+    async function resetDatabase() {
+      if (!confirm('Are you sure you want to completely WIPE the database and restore default seeded data? All user progress, payments, and referrals will be lost.')) return;
+      log('Requesting database reset...');
+      try {
+        const res = await fetch('/api/admin/reset', { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+          log('Database reset complete: ' + data.message);
+          await loadAdminDashboard();
+        } else {
+          log('Reset denied: ' + data.error, true);
+        }
+      } catch (err) {
+        log('Reset error: ' + err.message, true);
+      }
+    }
+
+    async function clearActivityLogs() {
+      if (!confirm('Are you sure you want to clear the event logs?')) return;
+      log('Clearing activity logs...');
+      try {
+        const res = await fetch('/api/events/clear', { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+          log('Logs cleared successfully.');
+        } else {
+          log('Logs clear denied: ' + data.error, true);
+        }
+      } catch (err) {
+        log('Clear logs error: ' + err.message, true);
+      }
+    }
+
+    function showCreateModal() {
+      document.getElementById('create-modal').classList.remove('hidden');
+    }
+
+    function closeCreateModal() {
+      document.getElementById('create-modal').classList.add('hidden');
+    }
+
+    async function createUser(e) {
+      e.preventDefault();
+      const payload = {
+        name: document.getElementById('create-name').value,
+        email: document.getElementById('create-email').value,
+        phone: document.getElementById('create-phone').value,
+        batch_id: document.getElementById('create-batch').value ? parseInt(document.getElementById('create-batch').value, 10) : null,
+        role: document.getElementById('create-role').value,
+        current_stage: document.getElementById('create-stage').value
+      };
+
+      log(`Creating user ${payload.email}...`);
+      try {
+        const res = await fetch('/api/admin/user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (res.ok) {
+          log(`Success: ${data.message}`);
+          closeCreateModal();
+          await loadAdminDashboard();
+        } else {
+          log(`Creation failed: ${data.error}`, true);
+        }
+      } catch (err) {
+        log(`Create user error: ${err.message}`, true);
+      }
+    }
+
+    function showEditModal(user) {
+      document.getElementById('edit-original-email').value = user.email;
+      document.getElementById('edit-email').value = user.email;
+      document.getElementById('edit-name').value = user.name;
+      document.getElementById('edit-phone').value = user.phone;
+      document.getElementById('edit-batch').value = user.batch_id || '';
+      document.getElementById('edit-role').value = user.role;
+      document.getElementById('edit-stage').value = user.current_stage;
+      document.getElementById('edit-modal').classList.remove('hidden');
+    }
+
+    function closeEditModal() {
+      document.getElementById('edit-modal').classList.add('hidden');
+    }
+
+    async function updateUser(e) {
+      e.preventDefault();
+      const email = document.getElementById('edit-original-email').value;
+      const payload = {
+        name: document.getElementById('edit-name').value,
+        phone: document.getElementById('edit-phone').value,
+        batch_id: document.getElementById('edit-batch').value ? parseInt(document.getElementById('edit-batch').value, 10) : null,
+        role: document.getElementById('edit-role').value,
+        current_stage: document.getElementById('edit-stage').value
+      };
+
+      log(`Updating user ${email}...`);
+      try {
+        const res = await fetch(`/api/admin/user/${email}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (res.ok) {
+          log(`Success: ${data.message}`);
+          closeEditModal();
+          await loadAdminDashboard();
+        } else {
+          log(`Update failed: ${data.error}`, true);
+        }
+      } catch (err) {
+        log(`Update user error: ${err.message}`, true);
+      }
+    }
+
+    async function deleteUser(email) {
+      if (!confirm(`Are you absolutely sure you want to delete the user account: ${email}? This action is irreversible.`)) return;
+      log(`Deleting user ${email}...`);
+      try {
+        const res = await fetch(`/api/admin/user/${email}`, {
+          method: 'DELETE'
+        });
+        const data = await res.json();
+        if (res.ok) {
+          log(`Success: ${data.message}`);
+          await loadAdminDashboard();
+        } else {
+          log(`Delete failed: ${data.error}`, true);
+        }
+      } catch (err) {
+        log(`Delete user error: ${err.message}`, true);
+      }
+    }
+
+    window.onload = async () => {
+      await checkSession();
+      // Try to load dashboard (will log error if guest)
+      await loadAdminDashboard();
+    };
+  </script>
+</body>
+</html>

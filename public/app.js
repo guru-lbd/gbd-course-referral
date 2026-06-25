@@ -14,11 +14,13 @@ let signups = [];
 let eventLogs = [];
 let currentUser = null;
 let cart = [];
-let activeTab = 'courses';
+let activeTab = 'referral';
 let authMode = 'login'; // 'login' or 'register'
 let editingClientEmail = null;
 let editingAffiliateCode = null;
 let allSignups = [];
+let allBatches = [];
+let referrals = [];
 let transformState = { x: 0, y: 0, scale: 0.85 };
 let isPanning = false;
 let panStart = { x: 0, y: 0 };
@@ -38,6 +40,162 @@ const SEED_REFERRALS = [];
 const SEED_CLICKS = [];
 const SEED_SIGNUPS = [];
 
+function resolveClientPortalView() {
+  if (!currentUser) {
+    document.getElementById('auth-panel').style.display = 'block';
+    document.getElementById('portal-panel').style.display = 'none';
+    document.getElementById('migration-landing-panel').style.display = 'none';
+    document.getElementById('gap-details-panel').style.display = 'none';
+    return;
+  }
+
+  document.getElementById('auth-panel').style.display = 'none';
+  document.getElementById('welcome-message').textContent = `Logged in as: ${currentUser.name}`;
+
+  const stage = currentUser.current_stage || 'INVITED';
+
+  if (stage === 'GAP' || stage === 'PAYMENT_1') {
+    document.getElementById('gap-details-panel').style.display = 'flex';
+    document.getElementById('migration-landing-panel').style.display = 'none';
+    document.getElementById('portal-panel').style.display = 'none';
+    renderCourseDetailsPageProgress();
+  } else if (currentUser.gap_page_active && ['INVITED', 'MASTERCLASS', 'REGISTRATION'].includes(stage)) {
+    document.getElementById('gap-details-panel').style.display = 'flex';
+    document.getElementById('migration-landing-panel').style.display = 'none';
+    document.getElementById('portal-panel').style.display = 'none';
+    renderCourseDetailsPageProgress();
+  } else if (stage === 'INVITED' || stage === 'MASTERCLASS') {
+    document.getElementById('migration-landing-panel').style.display = 'flex';
+    document.getElementById('portal-panel').style.display = 'none';
+    document.getElementById('gap-details-panel').style.display = 'none';
+    
+    // Reset button text in case it was modified
+    const reserveBtn = document.querySelector('.btn-reserve-seat span');
+    if (reserveBtn) reserveBtn.textContent = 'RESERVE MY SEAT';
+  } else if (stage === 'REGISTRATION') {
+    // Gap page deactivated: show migration page with a banner
+    document.getElementById('migration-landing-panel').style.display = 'flex';
+    document.getElementById('portal-panel').style.display = 'none';
+    document.getElementById('gap-details-panel').style.display = 'none';
+    
+    // Update button text to reflect attendance verified
+    const reserveBtn = document.querySelector('.btn-reserve-seat span');
+    if (reserveBtn) reserveBtn.textContent = 'VIEW ATTENDANCE STATUS';
+    
+    // Hide dashboard bypass button inside popup card if registration is locked
+    const bypassBtn = document.querySelector('#masterclass-popup button[onclick="proceedToDashboard()"]');
+    if (bypassBtn) bypassBtn.style.display = 'none';
+    
+    showNotification('Access to the Gap details page is pending activation by Admin.', 'info');
+  } else {
+    document.getElementById('portal-panel').style.display = 'block';
+    document.getElementById('migration-landing-panel').style.display = 'none';
+    document.getElementById('gap-details-panel').style.display = 'none';
+  }
+}
+
+function renderCourseDetailsPageProgress() {
+  if (!currentUser) return;
+  const stage = currentUser.current_stage || 'INVITED';
+  
+  const gapGrid = document.getElementById('gap-courses-grid');
+  if (!gapGrid) return;
+  
+  const gapCard = gapGrid.querySelector('.unlocked');
+  const gapBtn = gapCard ? gapCard.querySelector('button') : null;
+  const floatingWidget = document.getElementById('floating-payment-widget');
+  
+  const showFloatingWidget = (stage === 'PAYMENT_1') || (stage === 'GAP' && currentUser.gap_payment_active);
+
+  if (stage === 'GAP') {
+    if (gapBtn) {
+      gapBtn.textContent = '✓ Registered';
+      gapBtn.disabled = true;
+      gapBtn.style.background = 'rgba(255, 255, 255, 0.05)';
+      gapBtn.style.color = 'var(--text-muted)';
+      gapBtn.style.border = '1px solid rgba(255, 255, 255, 0.1)';
+      gapBtn.style.boxShadow = 'none';
+      gapBtn.style.cursor = 'default';
+    }
+  } else if (stage === 'PAYMENT_1' || stage === 'BRIDGE' || stage === 'PAYMENT_2' || stage === 'CERTIFIED' || stage === 'PARTNER') {
+    if (gapBtn) {
+      gapBtn.textContent = '✓ Completed';
+      gapBtn.disabled = true;
+      gapBtn.style.background = 'rgba(255, 255, 255, 0.05)';
+      gapBtn.style.color = 'var(--text-muted)';
+      gapBtn.style.border = '1px solid rgba(255, 255, 255, 0.1)';
+      gapBtn.style.boxShadow = 'none';
+      gapBtn.style.cursor = 'default';
+    }
+  } else {
+    if (gapBtn) {
+      gapBtn.textContent = 'Register for Gap';
+      gapBtn.disabled = false;
+      gapBtn.style.background = 'linear-gradient(135deg, #E2B774 0%, #C6A268 100%)';
+      gapBtn.style.color = '#121212';
+      gapBtn.style.border = 'none';
+      gapBtn.style.boxShadow = '0 4px 15px rgba(198,162,104,0.2)';
+      gapBtn.style.cursor = 'pointer';
+    }
+  }
+
+  if (floatingWidget) {
+    if (showFloatingWidget && (stage === 'GAP' || stage === 'PAYMENT_1')) {
+      floatingWidget.style.display = 'flex';
+    } else {
+      floatingWidget.style.display = 'none';
+    }
+  }
+}
+
+function closeFloatingPaymentWidget() {
+  const widget = document.getElementById('floating-payment-widget');
+  if (widget) widget.style.display = 'none';
+}
+
+async function initiateFloatingPayment() {
+  if (!currentUser) return;
+  
+  const paymentType = currentUser.current_stage === 'GAP' ? 'PAYMENT_1' : (currentUser.current_stage || 'PAYMENT_1');
+  showNotification('Initiating payment transaction...', 'info');
+  
+  try {
+    const createRes = await fetch('/api/payment/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: currentUser.id, paymentType })
+    });
+    const createData = await createRes.json();
+    if (!createRes.ok) throw new Error(createData.error || 'Failed to create payment order');
+    
+    const verifyRes = await fetch('/api/payment/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: currentUser.id,
+        paymentId: `pay_mock_${Date.now()}`,
+        orderId: createData.payment.razorpay_order_id,
+        signature: `sig_mock_${Date.now()}`
+      })
+    });
+    const verifyData = await verifyRes.json();
+    if (!verifyRes.ok) throw new Error(verifyData.error || 'Failed to verify payment');
+    
+    showNotification('Payment successful! Stage updated to ' + verifyData.nextStage, 'success');
+    
+    currentUser.current_stage = verifyData.nextStage;
+    localStorage.setItem('gbd_current_user', JSON.stringify(currentUser));
+    
+    const floatingCard = document.getElementById('floating-payment-widget');
+    if (floatingCard) floatingCard.style.display = 'none';
+    
+    resolveClientPortalView();
+  } catch (err) {
+    console.error('Payment execution failed:', err);
+    showNotification(err.message || 'Payment failed. Please try again.', 'error');
+  }
+}
+
 function showOptimisticClientPortal() {
   const session = localStorage.getItem('gbd_current_user');
   const urlParams = new URLSearchParams(window.location.search);
@@ -47,9 +205,7 @@ function showOptimisticClientPortal() {
     try {
       currentUser = JSON.parse(session);
       if (currentUser && currentUser.name) {
-        document.getElementById('portal-panel').style.display = 'block';
-        document.getElementById('auth-panel').style.display = 'none';
-        document.getElementById('welcome-message').textContent = `Logged in as: ${currentUser.name}`;
+        resolveClientPortalView();
         
         // Render initial UI using cached session details
         renderCoursesCatalog();
@@ -64,30 +220,35 @@ function showOptimisticClientPortal() {
       } else {
         document.getElementById('auth-panel').style.display = 'block';
         document.getElementById('portal-panel').style.display = 'none';
-        if (refCode) {
-          toggleAuthMode('register');
-        } else {
-          toggleAuthMode('login');
-        }
+        document.getElementById('migration-landing-panel').style.display = 'none';
+        document.getElementById('gap-details-panel').style.display = 'none';
+        resetOtpRequest();
       }
     } catch (e) {
       console.warn('Optimistic client portal parse error:', e);
       document.getElementById('auth-panel').style.display = 'block';
       document.getElementById('portal-panel').style.display = 'none';
-      if (refCode) {
-        toggleAuthMode('register');
-      } else {
-        toggleAuthMode('login');
-      }
+      document.getElementById('migration-landing-panel').style.display = 'none';
+      document.getElementById('gap-details-panel').style.display = 'none';
+      resetOtpRequest();
     }
   } else {
     document.getElementById('auth-panel').style.display = 'block';
     document.getElementById('portal-panel').style.display = 'none';
-    if (refCode) {
-      toggleAuthMode('register');
-    } else {
-      toggleAuthMode('login');
-    }
+    document.getElementById('migration-landing-panel').style.display = 'none';
+    document.getElementById('gap-details-panel').style.display = 'none';
+    resetOtpRequest();
+  }
+}
+
+// Manually enter portal from loading page
+function enterPortal() {
+  const loader = document.getElementById('loading-screen');
+  if (loader) {
+    loader.style.opacity = '0';
+    setTimeout(() => {
+      loader.style.display = 'none';
+    }, 800); // Allow fade animation to finish
   }
 }
 
@@ -109,6 +270,53 @@ document.addEventListener('DOMContentLoaded', async () => {
    ========================================================================== */
 
 let useBackend = false;
+
+// Helper to parse dates in local timezone
+function parseLocalDate(dateStr) {
+  if (!dateStr || dateStr === 'Pending') return new Date(NaN);
+  let s = dateStr.trim();
+  if (s.includes(' ')) {
+    s = s.replace(' ', 'T');
+  }
+  if (!s.includes('T') && s.length <= 10) {
+    s = s + 'T00:00';
+  }
+  return new Date(s);
+}
+
+// Client-side mock user gating resolver for Local Simulation Mode
+function resolveMockUserGating(user) {
+  if (!user) return { gapPageActive: false, gapPaymentActive: false };
+  const batchId = user.batch_id || 1;
+  const settings = JSON.parse(localStorage.getItem('gbd_settings_v4')) || {};
+  const batches = JSON.parse(localStorage.getItem('gbd_batches_v4')) || [
+    { id: 1, name: 'Old Big Sister', code: 'OLD_BIG_SISTER', masterclass_date: '2026-06-20T19:00', registration_date: '2026-06-21T19:00', gap_date: '2026-06-22T19:00', bridge_date: '2026-06-24T19:00' },
+    { id: 2, name: 'New Big Sister', code: 'NEW_BIG_SISTER', masterclass_date: '2026-06-22T19:00', registration_date: '2026-06-23T19:00', gap_date: '2026-06-24T19:00', bridge_date: '2026-06-26T19:00' },
+    { id: 3, name: 'SS Certified', code: 'SS_CERTIFIED', masterclass_date: '2026-06-24T19:00', registration_date: '2026-06-25T19:00', gap_date: '2026-06-26T19:00', bridge_date: '2026-06-28T19:00' }
+  ];
+  const batch = batches.find(b => b.id === batchId);
+
+  const manualGapActive = settings[`gap_page_active_${batchId}`] !== false;
+  const manualPaymentActive = settings[`gap_payment_active_${batchId}`] === true;
+
+  const currentTime = new Date();
+  let isMasterclassPassed = false;
+  if (batch && batch.masterclass_date) {
+    const masterclassTime = parseLocalDate(batch.masterclass_date);
+    isMasterclassPassed = !isNaN(masterclassTime.getTime()) && currentTime >= masterclassTime;
+  }
+
+  let isGapPassed = false;
+  if (batch && batch.gap_date) {
+    const gapTime = parseLocalDate(batch.gap_date);
+    isGapPassed = !isNaN(gapTime.getTime()) && currentTime >= gapTime;
+  }
+
+  return {
+    gapPageActive: manualGapActive || isMasterclassPassed,
+    gapPaymentActive: manualPaymentActive || isGapPassed
+  };
+}
 
 async function initDatabase() {
   try {
@@ -157,21 +365,22 @@ async function initDatabase() {
             currentUser = userData.user;
             currentUser.affiliate = userData.affiliate;
             localStorage.setItem('gbd_current_user', JSON.stringify(currentUser));
-          } else if (userRes.status === 404) {
+            resolveClientPortalView();
+          } else if (userRes.status === 401 || userRes.status === 404) {
             try {
               const errData = await userRes.json();
-              if (errData && errData.error === 'User not found.') {
+              if (errData && (errData.error === 'User not found.' || errData.error === 'Unauthorized.')) {
                 localStorage.removeItem('gbd_current_user');
                 currentUser = null;
                 if (isClientPage) {
                   document.getElementById('portal-panel').style.display = 'none';
                   document.getElementById('auth-panel').style.display = 'block';
                   toggleAuthMode('login');
-                  showNotification('Your session has expired or your account was deleted.', 'error');
+                  showNotification('Your session has expired. Please log in again.', 'error');
                 }
               }
             } catch (jsonErr) {
-              console.warn('Non-JSON 404 response from users/me (possibly route not ready), skipping logout.');
+              console.warn('Non-JSON error response from users/me, skipping logout.');
             }
           }
         }
@@ -231,6 +440,14 @@ async function initDatabase() {
       banner.style.cssText = "background: rgba(192, 57, 43, 0.15); border-bottom: 1.5px solid var(--danger); color: var(--danger); text-align: center; padding: 0.6rem; font-size: 0.8rem; font-weight: bold; width: 100%; position: relative; z-index: 100000; font-family: var(--font-sans);";
       banner.innerHTML = "⚠️ Running in Local Simulation Mode (Offline Fallback). Data is stored locally in this browser and cannot be shared across different browsers, private tabs, or devices.";
       document.body.insertBefore(banner, document.body.firstChild);
+    }
+
+    if (currentUser) {
+      const mockGating = resolveMockUserGating(currentUser);
+      currentUser.gap_page_active = mockGating.gapPageActive;
+      currentUser.gap_payment_active = mockGating.gapPaymentActive;
+      localStorage.setItem('gbd_current_user', JSON.stringify(currentUser));
+      resolveClientPortalView();
     }
   }
 }
@@ -478,17 +695,81 @@ function initClientPortal() {
       if (freshUser) currentUser = freshUser;
     }
     
-    document.getElementById('portal-panel').style.display = 'block';
-    document.getElementById('welcome-message').textContent = `Logged in as: ${currentUser.name}`;
-    switchTab('courses');
+    resolveClientPortalView();
+    switchTab('referral');
   } else {
     document.getElementById('auth-panel').style.display = 'block';
     document.getElementById('portal-panel').style.display = 'none';
-    if (refCode) {
-      toggleAuthMode('register');
-    } else {
-      toggleAuthMode('login');
+    document.getElementById('migration-landing-panel').style.display = 'none';
+    document.getElementById('gap-details-panel').style.display = 'none';
+    resetOtpRequest();
+  }
+
+  // Periodic polling for status updates while waiting for stage/Gap activation
+  if (isClientPage) {
+    if (window.clientPortalPollInterval) {
+      clearInterval(window.clientPortalPollInterval);
     }
+    window.clientPortalPollInterval = setInterval(async () => {
+      if (currentUser && currentUser.email) {
+        const stage = currentUser.current_stage || 'INVITED';
+        if (stage === 'INVITED' || stage === 'MASTERCLASS' || (stage === 'REGISTRATION' && !currentUser.gap_page_active) || (stage === 'GAP' && !currentUser.gap_payment_active)) {
+          if (useBackend) {
+            try {
+              const userRes = await fetch(`/api/users/me?email=${encodeURIComponent(currentUser.email)}`);
+              if (userRes.ok) {
+                const userData = await userRes.json();
+                const oldStage = currentUser.current_stage;
+                const oldGapActive = currentUser.gap_page_active;
+                const oldGapPaymentActive = currentUser.gap_payment_active;
+                
+                currentUser = userData.user;
+                currentUser.affiliate = userData.affiliate;
+                localStorage.setItem('gbd_current_user', JSON.stringify(currentUser));
+                
+                if (currentUser.current_stage !== oldStage || 
+                    currentUser.gap_page_active !== oldGapActive || 
+                    currentUser.gap_payment_active !== oldGapPaymentActive) {
+                  resolveClientPortalView();
+                  // If a masterclass popup status update is needed
+                  const popup = document.getElementById('masterclass-popup');
+                  if (popup && popup.style.display === 'flex') {
+                    showMasterclassPopup();
+                  }
+                }
+              } else if (userRes.status === 401 || userRes.status === 404) {
+                clearInterval(window.clientPortalPollInterval);
+                localStorage.removeItem('gbd_current_user');
+                currentUser = null;
+                if (isClientPage) {
+                  document.getElementById('portal-panel').style.display = 'none';
+                  document.getElementById('gap-details-panel').style.display = 'none';
+                  document.getElementById('migration-landing-panel').style.display = 'none';
+                  document.getElementById('auth-panel').style.display = 'block';
+                  toggleAuthMode('login');
+                  showNotification('Your session has expired. Please log in again.', 'error');
+                }
+              }
+            } catch (err) {
+              console.warn('Status polling error:', err);
+            }
+          } else {
+            // Local Simulation Mode fallback
+            const oldGapActive = currentUser.gap_page_active;
+            const oldGapPaymentActive = currentUser.gap_payment_active;
+            
+            const mockGating = resolveMockUserGating(currentUser);
+            
+            if (mockGating.gapPageActive !== oldGapActive || mockGating.gapPaymentActive !== oldGapPaymentActive) {
+              currentUser.gap_page_active = mockGating.gapPageActive;
+              currentUser.gap_payment_active = mockGating.gapPaymentActive;
+              localStorage.setItem('gbd_current_user', JSON.stringify(currentUser));
+              resolveClientPortalView();
+            }
+          }
+        }
+      }
+    }, 4000);
   }
 }
 
@@ -514,11 +795,36 @@ function togglePasswordVisibility() {
 
 // Display custom non-blocking notification toast
 function showNotification(message, type = 'success') {
-  const banner = document.getElementById('notification-banner');
-  const msgEl = document.getElementById('notification-message');
-  const iconEl = document.getElementById('notification-icon');
+  let banner = document.getElementById('notification-banner');
+  let msgEl = document.getElementById('notification-message');
+  let iconEl = document.getElementById('notification-icon');
   
-  if (!banner || !msgEl || !iconEl) return;
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'notification-banner';
+    banner.className = 'panel';
+    banner.style.display = 'none';
+    banner.style.padding = '1rem 1.5rem';
+    banner.style.border = '1px solid var(--border-color)';
+    banner.style.borderRadius = '8px';
+    banner.style.fontWeight = '500';
+    banner.style.fontFamily = 'var(--font-sans)';
+    banner.style.transition = 'all 0.3s ease';
+    banner.style.opacity = '0';
+    banner.style.alignItems = 'center';
+    banner.style.gap = '0.75rem';
+    
+    iconEl = document.createElement('span');
+    iconEl.id = 'notification-icon';
+    iconEl.style.fontSize = '1.2rem';
+    
+    msgEl = document.createElement('span');
+    msgEl.id = 'notification-message';
+    
+    banner.appendChild(iconEl);
+    banner.appendChild(msgEl);
+    document.body.appendChild(banner);
+  }
   
   if (type === 'success') {
     iconEl.textContent = '✓';
@@ -614,216 +920,223 @@ function showCustomModal({ title = 'Confirm Action', message, type = 'confirm', 
   };
 }
 
-// Toggle authentication forms
-function toggleAuthMode(mode) {
-  authMode = mode;
-  const loginBtn = document.getElementById('btn-auth-tab-login');
-  const regBtn = document.getElementById('btn-auth-tab-register');
-  const regFields = document.getElementById('register-fields');
-  const submitBtn = document.getElementById('btn-auth-submit');
+// Request Email & Phone OTP
+async function handleRequestOtp() {
+  const emailInput = document.getElementById('auth-email');
+  const phoneInput = document.getElementById('auth-phone');
   const errBox = document.getElementById('auth-error');
+  const successBox = document.getElementById('auth-success');
+  const requestBtn = document.getElementById('btn-request-otp');
+
+  if (!emailInput || !phoneInput || !errBox || !successBox || !requestBtn) return;
 
   errBox.style.display = 'none';
+  successBox.style.display = 'none';
 
-  if (mode === 'login') {
-    loginBtn.classList.add('active');
-    regBtn.classList.remove('active');
-    regFields.style.display = 'none';
-    submitBtn.textContent = 'Sign In';
-  } else {
-    loginBtn.classList.remove('active');
-    regBtn.classList.add('active');
-    regFields.style.display = 'block';
-    submitBtn.textContent = 'Create Account';
-    
-    // Autofill referral field if we have an active referral code
-    const activeRef = localStorage.getItem('gbd_active_referral');
-    const refInput = document.getElementById('auth-referral');
-    if (activeRef && refInput && !refInput.value) {
-      refInput.value = activeRef;
-    }
-  }
-}
+  const email = emailInput.value.trim().toLowerCase();
+  const phone = phoneInput.value.trim();
 
-// Process login/registration submit
-async function handleAuthSubmit() {
-  const email = document.getElementById('auth-email').value.trim();
-  const password = document.getElementById('auth-password').value.trim();
-  const name = document.getElementById('auth-name').value.trim();
-  const errBox = document.getElementById('auth-error');
-
-  errBox.style.display = 'none';
-
-  if (!email || !password || (authMode === 'register' && !name)) {
-    errBox.textContent = 'Please fill out all required fields.';
+  if (!email || !phone) {
+    errBox.textContent = 'Please enter both your email address and phone number.';
     errBox.style.display = 'block';
     return;
   }
 
-  const submitBtn = document.getElementById('btn-auth-submit');
-  const originalText = submitBtn.textContent;
-  submitBtn.disabled = true;
-  submitBtn.textContent = authMode === 'login' ? 'Signing In...' : 'Registering...';
+  requestBtn.disabled = true;
+  requestBtn.textContent = 'Sending OTP...';
 
-  try {
-    if (authMode === 'login') {
-      const res = await fetch('/api/auth/login', {
+  if (useBackend) {
+    try {
+      const res = await fetch('/api/auth/request-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, phone })
       });
+
+      if (!res.ok) {
+        throw new Error('Verification failed. Server returned an error.');
+      }
+
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Login failed');
-      
-      currentUser = data.user;
-      localStorage.setItem('gbd_current_user', JSON.stringify(currentUser));
-      document.getElementById('auth-panel').style.display = 'none';
-      document.getElementById('portal-panel').style.display = 'block';
-      document.getElementById('welcome-message').textContent = `Logged in as: ${currentUser.name}`;
-      
-      document.getElementById('auth-email').value = '';
-      document.getElementById('auth-password').value = '';
-      switchTab('courses');
-    } else {
-      const referralCode = document.getElementById('auth-referral') ? document.getElementById('auth-referral').value.trim().toUpperCase() : '';
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password, referralCode })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Registration failed');
-      
-      currentUser = data.user;
-      localStorage.setItem('gbd_current_user', JSON.stringify(currentUser));
-      document.getElementById('auth-panel').style.display = 'none';
-      document.getElementById('portal-panel').style.display = 'block';
-      document.getElementById('welcome-message').textContent = `Logged in as: ${currentUser.name}`;
-      
-      document.getElementById('auth-name').value = '';
-      document.getElementById('auth-email').value = '';
-      document.getElementById('auth-password').value = '';
-      if (document.getElementById('auth-referral')) {
-        document.getElementById('auth-referral').value = '';
+
+      if (data.success) {
+        successBox.textContent = data.message || 'OTPs sent to your email and phone.';
+        successBox.style.display = 'block';
+
+        emailInput.disabled = true;
+        phoneInput.disabled = true;
+        requestBtn.disabled = true;
+        requestBtn.textContent = 'OTP Sent';
+
+        const otpSection = document.getElementById('otp-verification-section');
+        if (otpSection) otpSection.style.display = 'block';
+      } else {
+        errBox.textContent = data.message || 'Access Restricted. Please contact LBDA support.';
+        errBox.style.display = 'block';
+        requestBtn.disabled = false;
+        requestBtn.textContent = 'Send OTP';
       }
-      switchTab('courses');
+    } catch (err) {
+      console.error('Request OTP API error:', err);
+      errBox.textContent = 'Failed to request OTP. Please check your connection.';
+      errBox.style.display = 'block';
+      requestBtn.disabled = false;
+      requestBtn.textContent = 'Send OTP';
     }
-    // Reload database arrays in the background asynchronously
-    initDatabase();
-  } catch (apiErr) {
-    console.warn('Auth API error, trying LocalStorage fallback:', apiErr.message);
+  } else {
+    // Local Simulation Fallback
+    const user = users.find(u => u.email.toLowerCase() === email && String(u.phone || '').trim() === phone);
+    if (user) {
+      // Generate mock OTPs
+      const mockEmailOtp = '123456';
+      const mockPhoneOtp = '654321';
+      window.localMockOtp = { email, mockEmailOtp, mockPhoneOtp };
 
-    if (authMode === 'login') {
-      // Process login
-      const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
-      if (!user) {
-        errBox.textContent = 'No account found with this email.';
-        errBox.style.display = 'block';
-        return;
-      }
+      console.log(`[LOCAL SIMULATION OTP] Email: ${email}, Phone: ${phone}. Email OTP: ${mockEmailOtp}, Phone OTP: ${mockPhoneOtp}`);
+      successBox.innerHTML = `[SIMULATION] OTPs generated! Check developer console.<br>Or use Email OTP: <code>${mockEmailOtp}</code> and Phone OTP: <code>${mockPhoneOtp}</code>`;
+      successBox.style.display = 'block';
 
-      if (user.password !== password) {
-        errBox.textContent = 'Incorrect password.';
-        errBox.style.display = 'block';
-        return;
-      }
+      emailInput.disabled = true;
+      phoneInput.disabled = true;
+      requestBtn.disabled = true;
+      requestBtn.textContent = 'OTP Sent';
 
-      // Success
-      currentUser = user;
-      localStorage.setItem('gbd_current_user', JSON.stringify(user));
-      document.getElementById('auth-panel').style.display = 'none';
-      document.getElementById('portal-panel').style.display = 'block';
-      document.getElementById('welcome-message').textContent = `Logged in as: ${user.name}`;
-      
-      // Clear inputs
-      document.getElementById('auth-email').value = '';
-      document.getElementById('auth-password').value = '';
-
-      switchTab('courses');
-
+      const otpSection = document.getElementById('otp-verification-section');
+      if (otpSection) otpSection.style.display = 'block';
     } else {
-      // Process registration
-      const referralCode = document.getElementById('auth-referral') ? document.getElementById('auth-referral').value.trim().toUpperCase() : '';
-      
-      const existing = users.find(u => u.email.toLowerCase() === email.toLowerCase());
-      if (existing) {
-        errBox.textContent = 'An account with this email already exists.';
-        errBox.style.display = 'block';
-        return;
-      }
-
-      let referred_by = null;
-      if (referralCode) {
-        const cleanCode = referralCode.replace(/-OFF$/, '');
-        const referrerProfile = referralProfiles.find(r => r.affiliate_code.toUpperCase() === cleanCode);
-        if (referrerProfile) {
-          referred_by = referrerProfile.email.toLowerCase();
-          if (referred_by === email.toLowerCase()) {
-            errBox.textContent = 'You cannot refer yourself.';
-            errBox.style.display = 'block';
-            return;
-          }
-        } else {
-          errBox.textContent = 'Invalid referral code.';
-          errBox.style.display = 'block';
-          return;
-        }
-      }
-
-      // Generate unique code (e.g. CON2991)
-      const cleanName = name.replace(/[^a-zA-Z]/g, '').substring(0, 4).toUpperCase();
-      const randNum = Math.floor(1000 + Math.random() * 9000);
-      const affiliateCode = `${cleanName}${randNum}`;
-      const couponCode = `${affiliateCode}-OFF`;
-
-      const newUser = {
-        name,
-        email,
-        password,
-        purchased_courses: [],
-        referred_by: referred_by
-      };
-
-      const newReferral = {
-        email,
-        affiliate_code: affiliateCode,
-        coupon_code: couponCode,
-        referrals_count: 0,
-        earnings: 0.00
-      };
-
-      users.push(newUser);
-      referralProfiles.push(newReferral);
-      saveDatabase();
-
-      logSystemEvent('AffiliateRegistered', {
-        name: newUser.name,
-        email: newUser.email,
-        affiliate_code: newReferral.affiliate_code,
-        coupon_code: newReferral.coupon_code,
-        referred_by: referred_by
-      });
-
-      currentUser = newUser;
-      localStorage.setItem('gbd_current_user', JSON.stringify(newUser));
-      document.getElementById('auth-panel').style.display = 'none';
-      document.getElementById('portal-panel').style.display = 'block';
-      document.getElementById('welcome-message').textContent = `Logged in as: ${newUser.name}`;
-
-      // Clear inputs
-      document.getElementById('auth-name').value = '';
-      document.getElementById('auth-email').value = '';
-      document.getElementById('auth-password').value = '';
-      if (document.getElementById('auth-referral')) {
-        document.getElementById('auth-referral').value = '';
-      }
-
-      switchTab('courses');
+      errBox.textContent = 'Access Restricted. Please contact LBDA support.';
+      errBox.style.display = 'block';
+      requestBtn.disabled = false;
+      requestBtn.textContent = 'Send OTP';
     }
-  } finally {
-    submitBtn.disabled = false;
-    submitBtn.textContent = originalText;
   }
+}
+
+// Verify OTP & Login
+async function handleVerifyOtp() {
+  const emailInput = document.getElementById('auth-email');
+  const otpInput = document.getElementById('auth-otp');
+  const errBox = document.getElementById('auth-error');
+  const successBox = document.getElementById('auth-success');
+  const verifyBtn = document.getElementById('btn-verify-otp');
+
+  if (!emailInput || !otpInput || !errBox || !successBox || !verifyBtn) return;
+
+  errBox.style.display = 'none';
+  successBox.style.display = 'none';
+
+  const email = emailInput.value.trim().toLowerCase();
+  const otp = otpInput.value.trim();
+
+  if (!otp) {
+    errBox.textContent = 'Please enter your verification OTP.';
+    errBox.style.display = 'block';
+    return;
+  }
+
+  verifyBtn.disabled = true;
+  verifyBtn.textContent = 'Verifying...';
+
+  // Send the single otp as both emailOtp and phoneOtp to satisfy the backend route
+  const emailOtp = otp;
+  const phoneOtp = otp;
+
+  if (useBackend) {
+    try {
+      const res = await fetch('/api/auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, emailOtp, phoneOtp })
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        successBox.textContent = 'Login successful!';
+        successBox.style.display = 'block';
+
+        currentUser = data.user;
+        localStorage.setItem('gbd_current_user', JSON.stringify(currentUser));
+
+        setTimeout(() => {
+          resolveClientPortalView();
+          resetOtpRequest();
+          switchTab('referral');
+          showNotification(`Welcome back, ${currentUser.name}!`, 'success');
+        }, 800);
+      } else {
+        errBox.textContent = data.message || 'Incorrect verification code. Please try again.';
+        errBox.style.display = 'block';
+        verifyBtn.disabled = false;
+        verifyBtn.textContent = 'Verify & Sign In';
+      }
+    } catch (err) {
+      console.error('Verify OTP API error:', err);
+      errBox.textContent = 'Verification request failed. Please try again.';
+      errBox.style.display = 'block';
+      verifyBtn.disabled = false;
+      verifyBtn.textContent = 'Verify & Sign In';
+    }
+  } else {
+    // Local Simulation Fallback
+    const mock = window.localMockOtp;
+    if (mock && mock.email === email && (mock.mockEmailOtp === otp || mock.mockPhoneOtp === otp)) {
+      const user = users.find(u => u.email.toLowerCase() === email);
+      
+      successBox.textContent = 'Login successful (Simulation)!';
+      successBox.style.display = 'block';
+
+      currentUser = user;
+      localStorage.setItem('gbd_current_user', JSON.stringify(currentUser));
+      window.localMockOtp = null;
+
+      setTimeout(() => {
+        resolveClientPortalView();
+        resetOtpRequest();
+        switchTab('referral');
+        showNotification(`Welcome back, ${currentUser.name}!`, 'success');
+      }, 800);
+    } else {
+      errBox.textContent = 'Incorrect verification code. Please try again.';
+      errBox.style.display = 'block';
+      verifyBtn.disabled = false;
+      verifyBtn.textContent = 'Verify & Sign In';
+    }
+  }
+}
+
+// Reset Form State
+function resetOtpRequest() {
+  const emailInput = document.getElementById('auth-email');
+  const phoneInput = document.getElementById('auth-phone');
+  const otpInput = document.getElementById('auth-otp');
+  const errBox = document.getElementById('auth-error');
+  const successBox = document.getElementById('auth-success');
+  const requestBtn = document.getElementById('btn-request-otp');
+  const verifyBtn = document.getElementById('btn-verify-otp');
+  const otpSection = document.getElementById('otp-verification-section');
+
+  if (emailInput) {
+    emailInput.disabled = false;
+    emailInput.value = '';
+  }
+  if (phoneInput) {
+    phoneInput.disabled = false;
+    phoneInput.value = '';
+  }
+  if (otpInput) otpInput.value = '';
+  if (errBox) errBox.style.display = 'none';
+  if (successBox) successBox.style.display = 'none';
+  
+  if (requestBtn) {
+    requestBtn.disabled = false;
+    requestBtn.textContent = 'Send OTP';
+  }
+  if (verifyBtn) {
+    verifyBtn.disabled = false;
+    verifyBtn.textContent = 'Verify & Sign In';
+  }
+  if (otpSection) otpSection.style.display = 'none';
 }
 // Log out active session
 function logoutUser() {
@@ -836,8 +1149,9 @@ function logoutUser() {
   const banner = document.getElementById('referred-banner');
   if (banner) banner.style.display = 'none';
   document.getElementById('portal-panel').style.display = 'none';
+  document.getElementById('migration-landing-panel').style.display = 'none';
   document.getElementById('auth-panel').style.display = 'block';
-  toggleAuthMode('login');
+  resetOtpRequest();
 }
 
 // Switch tabs inside portal
@@ -872,7 +1186,7 @@ function renderCoursesCatalog() {
   const enrolledCourses = currentUser.purchased_courses || [];
   
   // We have 3 course cards in the HTML: 1, 2, 3
-  document.querySelectorAll('.course-card').forEach((card, index) => {
+  document.querySelectorAll('#tab-courses .course-card').forEach((card, index) => {
     const courseId = index + 1;
     const btn = card.querySelector('button');
     if (btn) {
@@ -1243,15 +1557,143 @@ function renderProfile() {
 
 let adminPollInterval = null;
 
+async function checkAdminSession() {
+  const emailEl = document.getElementById('session-email');
+  const roleEl = document.getElementById('session-role');
+  const logoutBtn = document.getElementById('admin-logout-btn');
+  if (!emailEl || !roleEl) return;
+
+  try {
+    const res = await fetch('/api/user');
+    const data = await res.json();
+    if (data.authenticated && ['MD', 'OPERATIONS', 'FINANCE'].includes(data.user.role)) {
+      emailEl.textContent = data.user.email;
+      roleEl.textContent = data.user.role;
+      roleEl.style.background = getRoleBadgeColor(data.user.role);
+      roleEl.style.color = '#fff';
+      if (logoutBtn) logoutBtn.style.display = 'block';
+    } else {
+      emailEl.textContent = 'Not Logged In';
+      roleEl.textContent = 'Guest';
+      roleEl.style.background = '#6c757d';
+      roleEl.style.color = '#fff';
+      if (logoutBtn) logoutBtn.style.display = 'none';
+    }
+  } catch (err) {
+    emailEl.textContent = 'Offline';
+    roleEl.textContent = 'Guest';
+    roleEl.style.background = '#6c757d';
+    roleEl.style.color = '#fff';
+    if (logoutBtn) logoutBtn.style.display = 'none';
+  }
+}
+
+function getRoleBadgeColor(role) {
+  if (role === 'MD') return 'var(--danger)';
+  if (role === 'OPERATIONS') return 'var(--secondary)';
+  if (role === 'FINANCE') return 'var(--success)';
+  if (role === 'PARTNER') return '#6f42c1';
+  return '#6c757d';
+}
+
+async function autoLogin(email, phone) {
+  showNotification(`Requesting OTP for ${email}...`, 'success');
+  try {
+    const reqRes = await fetch('/api/auth/request-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, phone })
+    });
+    const reqData = await reqRes.json();
+    if (!reqData.success) {
+      showNotification(`OTP request failed: ${reqData.message}`, 'error');
+      return;
+    }
+
+    const debugRes = await fetch('/api/debug/otps');
+    const debugData = await debugRes.json();
+    const userOtp = debugData.otps[email.toLowerCase()];
+    
+    if (!userOtp) {
+      showNotification(`No debug OTP found for ${email}.`, 'error');
+      return;
+    }
+
+    const verifyRes = await fetch('/api/auth/verify-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email,
+        emailOtp: userOtp.emailOtp,
+        phoneOtp: userOtp.phoneOtp
+      })
+    });
+    const verifyData = await verifyRes.json();
+    
+    if (verifyData.success) {
+      showNotification(`Auth Success: Logged in as ${email}`, 'success');
+      await checkAdminSession();
+      
+      if (isClientPage) {
+        location.reload();
+      } else {
+        const role = verifyData.user ? verifyData.user.role : 'USER';
+        if (role === 'USER') {
+          showNotification('Logged in as client. Redirecting to Client Portal...', 'success');
+          setTimeout(() => {
+            window.location.href = '/index.html';
+          }, 1500);
+        } else {
+          await loadAdminPortalData();
+        }
+      }
+    } else {
+      showNotification(`Verification failed: ${verifyData.message}`, 'error');
+    }
+  } catch (err) {
+    showNotification(`Auto-login error: ${err.message}`, 'error');
+  }
+}
+
+async function logout() {
+  try {
+    const res = await fetch('/api/auth/logout', { method: 'POST' });
+    const data = await res.json();
+    showNotification(data.message || 'Logged out.', 'success');
+  } catch (err) {
+    console.error('Logout error:', err.message);
+  }
+  localStorage.removeItem('gbd_current_user');
+  localStorage.removeItem('gbd_active_referral');
+  currentUser = null;
+  
+  if (isClientPage) {
+    location.reload();
+  } else {
+    checkAdminSession();
+    loadAdminPortalData();
+  }
+}
+
 function initAdminPortal() {
+  checkAdminSession();
   loadAdminPortalData();
-  // Poll localStorage database changes every 2 seconds
+  // Poll database changes every 2 seconds
   adminPollInterval = setInterval(loadAdminPortalData, 2000);
 }
 
 async function loadAdminPortalData() {
   try {
     const res = await fetch('/api/admin/data');
+    if (res.status === 401 || res.status === 403) {
+      users = [];
+      allBatches = [];
+      referrals = [];
+      renderAdminUsersTable();
+      renderAdminAffiliatesTable();
+      checkAdminSession();
+      return;
+    }
     if (!res.ok) throw new Error('API request failed');
     const data = await res.json();
     
@@ -1261,9 +1703,12 @@ async function loadAdminPortalData() {
     signups = data.signups || [];
     allSignups = data.allSignups || [];
     eventLogs = data.events || [];
+    allBatches = data.batches || [];
+    referrals = data.referrals || [];
+    
+    populateBatchDropdowns();
   } catch (err) {
     console.warn('Backend server offline during polling, reading from LocalStorage:', err.message);
-    // Re-read arrays from localstorage
     users = JSON.parse(localStorage.getItem('gbd_users_v4')) || [];
     referralProfiles = JSON.parse(localStorage.getItem('gbd_referrals_v4')) || [];
     clicks = JSON.parse(localStorage.getItem('gbd_clicks_v4')) || [];
@@ -1283,58 +1728,83 @@ async function loadAdminPortalData() {
   renderEventsConsole(eventLogs);
 }
 
+function populateBatchDropdowns() {
+  const inviteBatch = document.getElementById('invite-batch');
+  const editBatch = document.getElementById('edit-user-batch');
+  if (!inviteBatch || !editBatch) return;
+  
+  if (inviteBatch.children.length > 1) return;
+
+  let html = '<option value="">No Batch Assigned</option>';
+  for (const b of allBatches) {
+    html += `<option value="${b.id}">${b.name} (${b.code})</option>`;
+  }
+  inviteBatch.innerHTML = html;
+  editBatch.innerHTML = html;
+}
+
 function renderAdminUsersTable() {
   const tbody = document.getElementById('admin-users-tbody');
   if (!tbody) return;
   tbody.innerHTML = '';
 
   if (users.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" class="text-center" style="color:var(--text-muted);">No client accounts registered.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="text-center" style="color:var(--text-muted); padding: 1.5rem;">No client accounts registered.</td></tr>`;
     return;
   }
 
-  const coursesMapping = {
-    1: 'Python Web Masterclass',
-    2: 'JavaScript Deep Dive',
-    3: 'Divine Creator Community'
-  };
-
   users.forEach(u => {
-    const enrolled = u.purchased_courses || [];
-    const courseNames = enrolled.map(cid => coursesMapping[cid] || `Course ${cid}`).join(', ') || 'None';
+    const roleColor = getRoleBadgeColor(u.role);
+    const batchName = u.batch_name || 'No Batch';
     
-    if (u.email === editingClientEmail) {
-      tbody.innerHTML += `
-        <tr>
-          <td><input type="text" id="edit-client-name-${u.email}" value="${u.name}" class="input-sm"></td>
-          <td>${u.email}</td>
-          <td><input type="text" id="edit-client-password-${u.email}" value="${u.password}" class="input-sm" style="font-family: var(--font-mono);"></td>
-          <td style="color: var(--text-muted); font-size: 0.9rem;">${courseNames}</td>
-          <td>
-            <div style="display: flex; gap: 0.5rem;">
-              <button class="btn btn-success btn-sm" onclick="saveClientEdit('${u.email}')">Save</button>
-              <button class="btn btn-secondary btn-sm" onclick="cancelClientEdit()">Cancel</button>
-            </div>
-          </td>
-        </tr>
-      `;
-    } else {
-      tbody.innerHTML += `
-        <tr>
-          <td style="font-weight: 600; color: var(--text-main);">${u.name}</td>
-          <td>${u.email}</td>
-          <td><code style="color: var(--secondary);">${u.password}</code></td>
-          <td style="color: var(--text-muted); font-size: 0.9rem;">${courseNames}</td>
-          <td>
-            <div style="display: flex; gap: 0.5rem;">
-              <button class="btn btn-secondary btn-sm" onclick="editClient('${u.email}')">Edit</button>
-              <button class="btn btn-danger btn-sm" onclick="deleteClient('${u.email}')" style="background-color: var(--danger); border-color: var(--danger);">Delete</button>
-            </div>
-          </td>
-        </tr>
-      `;
-    }
+    tbody.innerHTML += `
+      <tr>
+        <td>${u.id}</td>
+        <td>
+          <div style="font-weight: 600; color: var(--text-main);">${u.name}</div>
+          <div style="font-size: 0.8rem; color: var(--text-muted);">${u.email}</div>
+          <div style="font-size: 0.8rem; color: var(--text-muted);">${u.phone || 'No Phone'}</div>
+        </td>
+        <td>
+          <span class="badge" style="background: ${roleColor}; color: #fff;">${u.role}</span>
+        </td>
+        <td>
+          <span style="font-size: 0.85rem; font-weight: 500;">${batchName}</span>
+        </td>
+        <td>
+          <span class="badge" style="background: #6f42c1; color: #fff;">${u.current_stage}</span>
+        </td>
+        <td>
+          <div style="display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center;">
+            <button class="btn btn-secondary btn-sm" onclick="showEditUserModal(${JSON.stringify(u).replace(/"/g, '&quot;')})" style="font-size:0.75rem; padding: 3px 6px; cursor: pointer;">Edit</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteClient('${u.email}')" style="background-color: var(--danger); border-color: var(--danger); font-size:0.75rem; padding: 3px 6px; cursor: pointer;">Delete</button>
+            <button class="btn btn-success btn-sm" onclick="autoLogin('${u.email}', '${u.phone}')" style="background-color: var(--success); border-color: var(--success); font-size:0.75rem; padding: 3px 6px; cursor: pointer;">Login</button>
+            <button class="btn btn-secondary btn-sm" onclick="advanceStageAdmin(${u.id}, '${u.current_stage}')" style="font-size:0.75rem; padding: 3px 6px; cursor: pointer;">Advance</button>
+            ${renderStageActionButton(u)}
+          </div>
+        </td>
+      </tr>
+    `;
   });
+}
+
+function renderStageActionButton(u) {
+  if (u.current_stage === 'MASTERCLASS') {
+    return `<button class="btn btn-sm" onclick="markMasterclassAttendance(${u.id}, 'Attended')" style="background: var(--warning); border-color: var(--warning); color: #fff; font-size:0.75rem; padding: 3px 6px; cursor: pointer;">Mark Attended</button>`;
+  }
+  if (u.current_stage === 'GAP') {
+    return `<button class="btn btn-sm" onclick="completeGap(${u.id})" style="background: var(--warning); border-color: var(--warning); color: #fff; font-size:0.75rem; padding: 3px 6px; cursor: pointer;">Complete GAP</button>`;
+  }
+  if (u.current_stage === 'BRIDGE') {
+    return `<button class="btn btn-sm" onclick="completeBridge(${u.id})" style="background: var(--warning); border-color: var(--warning); color: #fff; font-size:0.75rem; padding: 3px 6px; cursor: pointer;">Complete Bridge</button>`;
+  }
+  if (u.current_stage === 'CERTIFICATION') {
+    return `<button class="btn btn-sm" onclick="certifyPartner(${u.id})" style="background: var(--warning); border-color: var(--warning); color: #fff; font-size:0.75rem; padding: 3px 6px; cursor: pointer;">Certify Graduate</button>`;
+  }
+  if (u.current_stage === 'PARTNER') {
+    return `<button class="btn btn-sm" onclick="addDeliveryParticipant(${u.id}, '${u.name}')" style="background: var(--warning); border-color: var(--warning); color: #fff; font-size:0.75rem; padding: 3px 6px; cursor: pointer;">+ Credit Coaching</button>`;
+  }
+  return '';
 }
 
 function renderAdminAffiliatesTable() {
@@ -1604,6 +2074,7 @@ function switchAdminTab(tabName) {
     initPanZoom();
   } else if (tabName === 'settings') {
     loadSystemSettings();
+    loadBatchSchedules();
   }
 }
 
@@ -1633,58 +2104,237 @@ function deleteClient(email) {
   });
 }
 
-function editClient(email) {
-  editingClientEmail = email;
-  renderAdminUsersTable();
-}
-
-function cancelClientEdit() {
-  editingClientEmail = null;
-  renderAdminUsersTable();
-}
-
-async function saveClientEdit(email) {
-  const nameInput = document.getElementById(`edit-client-name-${email}`);
-  const pwdInput = document.getElementById(`edit-client-password-${email}`);
-  if (!nameInput || !pwdInput) return;
-
-  const newName = nameInput.value.trim();
-  const newPassword = pwdInput.value.trim();
-
-  if (newName === '' || newPassword === '') {
-    showNotification('Name and Password cannot be empty.', 'error');
-    return;
+// Invite User Modal Controls
+function showInviteModal() {
+  const modal = document.getElementById('invite-user-modal');
+  if (modal) {
+    const select = document.getElementById('invite-batch');
+    if (select) {
+      let html = '<option value="">No Batch Assigned</option>';
+      allBatches.forEach(b => {
+        html += `<option value="${b.id}">${b.name} (${b.code})</option>`;
+      });
+      select.innerHTML = html;
+    }
+    modal.style.display = 'flex';
   }
+}
 
-  const u = users.find(user => user.email.toLowerCase() === email.toLowerCase());
-  if (!u) return;
+function closeInviteModal() {
+  const modal = document.getElementById('invite-user-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+async function submitInviteUser(e) {
+  e.preventDefault();
+  const name = document.getElementById('invite-name').value.trim();
+  const email = document.getElementById('invite-email').value.trim();
+  const phone = document.getElementById('invite-phone').value.trim();
+  const batch_id = document.getElementById('invite-batch').value ? parseInt(document.getElementById('invite-batch').value, 10) : null;
+  const role = document.getElementById('invite-role').value;
+  const current_stage = document.getElementById('invite-stage').value;
 
   try {
-    const res = await fetch(`/api/admin/user/${encodeURIComponent(email)}`, {
-      method: 'PUT',
+    const res = await fetch('/api/admin/user', {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: newName, password: newPassword, purchased_courses: u.purchased_courses })
+      body: JSON.stringify({ name, email, phone, batch_id, role, current_stage })
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Failed to update client');
-    
-    showNotification(data.message || 'Client account updated.', 'success');
-    editingClientEmail = null;
-    await initDatabase();
-    loadAdminPortalData();
+    if (res.ok) {
+      showNotification(data.message || 'User invited successfully.', 'success');
+      closeInviteModal();
+      document.getElementById('invite-user-form').reset();
+      loadAdminPortalData();
+    } else {
+      showNotification(`Error: ${data.error}`, 'error');
+    }
   } catch (err) {
-    console.warn('API error, trying LocalStorage fallback:', err);
-    u.name = newName;
-    u.password = newPassword;
-    
-    // Sync name to affiliate profile if they have one
-    const profile = referralProfiles.find(r => r.email.toLowerCase() === email.toLowerCase());
-    if (profile) profile.name = newName;
-    
-    saveDatabase();
-    showNotification('Client account updated (Local).', 'success');
-    editingClientEmail = null;
-    loadAdminPortalData();
+    showNotification(`Request failed: ${err.message}`, 'error');
+  }
+}
+
+// Edit User Modal Controls
+function showEditUserModal(user) {
+  const modal = document.getElementById('edit-user-modal');
+  if (modal) {
+    document.getElementById('edit-user-original-email').value = user.email;
+    document.getElementById('edit-user-email').value = user.email;
+    document.getElementById('edit-user-name').value = user.name;
+    document.getElementById('edit-user-phone').value = user.phone || '';
+    document.getElementById('edit-user-role').value = user.role;
+    document.getElementById('edit-user-stage').value = user.current_stage;
+
+    const select = document.getElementById('edit-user-batch');
+    if (select) {
+      let html = '<option value="">No Batch Assigned</option>';
+      allBatches.forEach(b => {
+        html += `<option value="${b.id}">${b.name} (${b.code})</option>`;
+      });
+      select.innerHTML = html;
+      select.value = user.batch_id || '';
+    }
+    modal.style.display = 'flex';
+  }
+}
+
+function closeEditUserModal() {
+  const modal = document.getElementById('edit-user-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+async function submitEditUser(e) {
+  e.preventDefault();
+  const originalEmail = document.getElementById('edit-user-original-email').value;
+  const name = document.getElementById('edit-user-name').value.trim();
+  const phone = document.getElementById('edit-user-phone').value.trim();
+  const batch_id = document.getElementById('edit-user-batch').value ? parseInt(document.getElementById('edit-user-batch').value, 10) : null;
+  const role = document.getElementById('edit-user-role').value;
+  const current_stage = document.getElementById('edit-user-stage').value;
+
+  try {
+    const res = await fetch(`/api/admin/user/${encodeURIComponent(originalEmail)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, phone, batch_id, role, current_stage })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      showNotification(data.message || 'User updated successfully.', 'success');
+      closeEditUserModal();
+      loadAdminPortalData();
+    } else {
+      showNotification(`Error: ${data.error}`, 'error');
+    }
+  } catch (err) {
+    showNotification(`Request failed: ${err.message}`, 'error');
+  }
+}
+
+// Stage Progression API Calls
+async function advanceStageAdmin(userId, currentStage) {
+  const stages = ['INVITED', 'MASTERCLASS', 'REGISTRATION', 'GAP', 'PAYMENT_1', 'BRIDGE', 'PAYMENT_2', 'CERTIFICATION', 'PARTNER'];
+  const currentIdx = stages.indexOf(currentStage);
+  if (currentIdx === -1 || currentIdx === stages.length - 1) {
+    showNotification(`User is already a partner or at an invalid stage.`, 'error');
+    return;
+  }
+  const nextStage = stages[currentIdx + 1];
+  
+  try {
+    const res = await fetch('/api/admin/change-stage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, newStage: nextStage })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      showNotification(data.message, 'success');
+      loadAdminPortalData();
+    } else {
+      showNotification(`Failed: ${data.error}`, 'error');
+    }
+  } catch (err) {
+    showNotification(`Error: ${err.message}`, 'error');
+  }
+}
+
+async function markMasterclassAttendance(userId, status) {
+  try {
+    const res = await fetch('/api/admin/masterclass/attendance', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, status })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      showNotification(data.message, 'success');
+      loadAdminPortalData();
+    } else {
+      showNotification(`Error: ${data.error}`, 'error');
+    }
+  } catch (err) {
+    showNotification(`Error: ${err.message}`, 'error');
+  }
+}
+
+async function completeGap(userId) {
+  try {
+    const res = await fetch('/api/admin/gap/complete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      showNotification(data.message, 'success');
+      loadAdminPortalData();
+    } else {
+      showNotification(`Error: ${data.error}`, 'error');
+    }
+  } catch (err) {
+    showNotification(`Error: ${err.message}`, 'error');
+  }
+}
+
+async function completeBridge(userId) {
+  try {
+    const res = await fetch('/api/admin/bridge/complete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      showNotification(data.message, 'success');
+      loadAdminPortalData();
+    } else {
+      showNotification(`Error: ${data.error}`, 'error');
+    }
+  } catch (err) {
+    showNotification(`Error: ${err.message}`, 'error');
+  }
+}
+
+async function certifyPartner(userId) {
+  try {
+    const res = await fetch('/api/admin/certify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      showNotification(`Success: certified and activated partner. Referral Link: ${data.referralLink}`, 'success');
+      loadAdminPortalData();
+    } else {
+      showNotification(`Error: ${data.error}`, 'error');
+    }
+  } catch (err) {
+    showNotification(`Error: ${err.message}`, 'error');
+  }
+}
+
+async function addDeliveryParticipant(partnerId, partnerName) {
+  const participantName = prompt("Enter Coaching Participant Full Name:");
+  if (!participantName) return;
+  const participantEmail = prompt("Enter Coaching Participant Email (optional):") || "";
+  
+  try {
+    const res = await fetch('/api/admin/delivery/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ partnerId, participantName, participantEmail })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      showNotification(data.message, 'success');
+      loadAdminPortalData();
+    } else {
+      showNotification(`Error: ${data.error}`, 'error');
+    }
+  } catch (err) {
+    showNotification(`Error: ${err.message}`, 'error');
   }
 }
 
@@ -1780,7 +2430,16 @@ async function saveAffiliateEdit(code) {
 
 function getReferrerEmailForUser(userEmail) {
   const user = users.find(u => u.email.toLowerCase() === userEmail.toLowerCase());
-  return user && user.referred_by ? user.referred_by.toLowerCase() : null;
+  if (!user) return null;
+  
+  if (useBackend) {
+    const ref = referrals.find(r => r.student_id === user.id);
+    if (!ref) return null;
+    const partner = users.find(u => u.id === ref.partner_id);
+    return partner ? partner.email.toLowerCase() : null;
+  } else {
+    return user.referred_by ? user.referred_by.toLowerCase() : null;
+  }
 }
 
 function renderReferralTree() {
@@ -2154,5 +2813,499 @@ async function saveSystemSettings() {
   } catch (err) {
     console.error('Failed to save settings:', err);
     showNotification('Failed to save settings.', 'error');
+  }
+}
+
+// ==========================================================================
+// ADMIN BATCH CONFIGURATION CONTROLLERS
+// ==========================================================================
+
+async function loadBatchSchedules() {
+  try {
+    let batches = [];
+    let settingsData = {};
+    
+    if (useBackend) {
+      const [batchesRes, settingsRes] = await Promise.all([
+        fetch('/api/batches'),
+        fetch('/api/admin/settings')
+      ]);
+      const batchesData = await batchesRes.json();
+      
+      if (!batchesRes.ok || !batchesData.success) throw new Error(batchesData.error || 'Failed to fetch batches');
+      batches = batchesData.batches;
+      
+      if (settingsRes.ok) {
+        settingsData = await settingsRes.json();
+      }
+    } else {
+      batches = JSON.parse(localStorage.getItem('gbd_batches_v4')) || [
+        { id: 1, name: 'Old Big Sister', code: 'OLD_BIG_SISTER', masterclass_date: '2026-06-20T19:00', registration_date: '2026-06-21T19:00', gap_date: '2026-06-22T19:00', bridge_date: '2026-06-24T19:00' },
+        { id: 2, name: 'New Big Sister', code: 'NEW_BIG_SISTER', masterclass_date: '2026-06-22T19:00', registration_date: '2026-06-23T19:00', gap_date: '2026-06-24T19:00', bridge_date: '2026-06-26T19:00' },
+        { id: 3, name: 'SS Certified', code: 'SS_CERTIFIED', masterclass_date: '2026-06-24T19:00', registration_date: '2026-06-25T19:00', gap_date: '2026-06-26T19:00', bridge_date: '2026-06-28T19:00' }
+      ];
+      settingsData = JSON.parse(localStorage.getItem('gbd_settings_v4')) || {};
+    }
+    
+    batches.forEach(b => {
+      const masterclassInput = document.getElementById(`batch-${b.id}-masterclass`);
+      const registrationInput = document.getElementById(`batch-${b.id}-registration`);
+      const gapInput = document.getElementById(`batch-${b.id}-gap`);
+      const bridgeInput = document.getElementById(`batch-${b.id}-bridge`);
+      const gapActiveInput = document.getElementById(`batch-${b.id}-gap-active`);
+      const gapPaymentActiveInput = document.getElementById(`batch-${b.id}-payment-active`);
+      
+      if (masterclassInput) {
+        masterclassInput.value = formatDateTimeLocalInput(b.masterclass_date);
+      }
+      if (registrationInput) {
+        registrationInput.value = formatDateTimeLocalInput(b.registration_date);
+      }
+      if (gapInput) {
+        gapInput.value = formatDateTimeLocalInput(b.gap_date);
+      }
+      if (bridgeInput) {
+        bridgeInput.value = formatDateTimeLocalInput(b.bridge_date);
+      }
+      if (gapActiveInput) {
+        gapActiveInput.checked = settingsData[`gap_page_active_${b.id}`] !== false;
+      }
+      if (gapPaymentActiveInput) {
+        gapPaymentActiveInput.checked = settingsData[`gap_payment_active_${b.id}`] === true;
+      }
+    });
+  } catch (err) {
+    console.error('Failed to load batch schedules:', err);
+  }
+}
+
+function formatDateTimeLocalInput(dateStr) {
+  if (!dateStr || dateStr === 'Pending') return '';
+  if (dateStr.includes('T')) {
+    return dateStr.slice(0, 16);
+  }
+  if (dateStr.includes(' ')) {
+    return dateStr.replace(' ', 'T').slice(0, 16);
+  }
+  return `${dateStr}T19:00`;
+}
+
+async function saveAdminBatchSchedule(batchId) {
+  const masterclassVal = document.getElementById(`batch-${batchId}-masterclass`).value;
+  const registrationVal = document.getElementById(`batch-${batchId}-registration`).value;
+  const gapVal = document.getElementById(`batch-${batchId}-gap`).value;
+  const bridgeVal = document.getElementById(`batch-${batchId}-bridge`).value;
+  
+  const cascadeCheckbox = document.getElementById(`batch-${batchId}-cascade`);
+  const cascade = cascadeCheckbox ? cascadeCheckbox.checked : false;
+
+  const gapActiveCheckbox = document.getElementById(`batch-${batchId}-gap-active`);
+  const gapPageActive = gapActiveCheckbox ? gapActiveCheckbox.checked : false;
+
+  const gapPaymentActiveCheckbox = document.getElementById(`batch-${batchId}-payment-active`);
+  const gapPaymentActive = gapPaymentActiveCheckbox ? gapPaymentActiveCheckbox.checked : false;
+  
+  if (useBackend) {
+    const payload = {
+      batchId: batchId,
+      masterclassDate: masterclassVal,
+      registrationDate: registrationVal,
+      gapDate: gapVal,
+      bridgeDate: bridgeVal,
+      cascade: cascade,
+      gapPageActive: gapPageActive,
+      gapPaymentActive: gapPaymentActive
+    };
+    
+    try {
+      const res = await fetch('/api/admin/change-batch-dates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update batch dates');
+      
+      showNotification(data.message || 'Batch dates updated successfully.', 'success');
+      await loadBatchSchedules();
+    } catch (err) {
+      console.error('Failed to save batch schedule:', err);
+      showNotification(err.message || 'Failed to save batch schedule.', 'error');
+    }
+  } else {
+    try {
+      let batches = JSON.parse(localStorage.getItem('gbd_batches_v4')) || [
+        { id: 1, name: 'Old Big Sister', code: 'OLD_BIG_SISTER', masterclass_date: '2026-06-20T19:00', registration_date: '2026-06-21T19:00', gap_date: '2026-06-22T19:00', bridge_date: '2026-06-24T19:00' },
+        { id: 2, name: 'New Big Sister', code: 'NEW_BIG_SISTER', masterclass_date: '2026-06-22T19:00', registration_date: '2026-06-23T19:00', gap_date: '2026-06-24T19:00', bridge_date: '2026-06-26T19:00' },
+        { id: 3, name: 'SS Certified', code: 'SS_CERTIFIED', masterclass_date: '2026-06-24T19:00', registration_date: '2026-06-25T19:00', gap_date: '2026-06-26T19:00', bridge_date: '2026-06-28T19:00' }
+      ];
+      
+      const batchIdx = batches.findIndex(b => b.id === batchId);
+      if (batchIdx !== -1) {
+        batches[batchIdx].masterclass_date = masterclassVal || batches[batchIdx].masterclass_date;
+        batches[batchIdx].registration_date = registrationVal || batches[batchIdx].registration_date;
+        batches[batchIdx].gap_date = gapVal || batches[batchIdx].gap_date;
+        batches[batchIdx].bridge_date = bridgeVal || batches[batchIdx].bridge_date;
+      }
+      
+      if (cascade && masterclassVal) {
+        const dateObj = new Date(masterclassVal);
+        const code = batches[batchIdx] ? batches[batchIdx].code : '';
+        
+        if (code === 'OLD_BIG_SISTER') {
+          const nbsDate = new Date(dateObj);
+          nbsDate.setDate(dateObj.getDate() + 2);
+          const nbsDateStr = nbsDate.toISOString().split('T')[0];
+          
+          const sscDate = new Date(dateObj);
+          sscDate.setDate(dateObj.getDate() + 4);
+          const sscDateStr = sscDate.toISOString().split('T')[0];
+          
+          const nbsIdx = batches.findIndex(b => b.code === 'NEW_BIG_SISTER');
+          if (nbsIdx !== -1) {
+            batches[nbsIdx].masterclass_date = nbsDateStr;
+            batches[nbsIdx].registration_date = nbsDateStr;
+            batches[nbsIdx].gap_date = nbsDateStr;
+            batches[nbsIdx].bridge_date = nbsDateStr;
+          }
+          
+          const sscIdx = batches.findIndex(b => b.code === 'SS_CERTIFIED');
+          if (sscIdx !== -1) {
+            batches[sscIdx].masterclass_date = sscDateStr;
+            batches[sscIdx].registration_date = sscDateStr;
+            batches[sscIdx].gap_date = sscDateStr;
+            batches[sscIdx].bridge_date = sscDateStr;
+          }
+        } else if (code === 'NEW_BIG_SISTER') {
+          const sscDate = new Date(dateObj);
+          sscDate.setDate(dateObj.getDate() + 2);
+          const sscDateStr = sscDate.toISOString().split('T')[0];
+          
+          const sscIdx = batches.findIndex(b => b.code === 'SS_CERTIFIED');
+          if (sscIdx !== -1) {
+            batches[sscIdx].masterclass_date = sscDateStr;
+            batches[sscIdx].registration_date = sscDateStr;
+            batches[sscIdx].gap_date = sscDateStr;
+            batches[sscIdx].bridge_date = sscDateStr;
+          }
+        }
+      }
+      
+      localStorage.setItem('gbd_batches_v4', JSON.stringify(batches));
+      
+      let settings = JSON.parse(localStorage.getItem('gbd_settings_v4')) || {};
+      settings[`gap_page_active_${batchId}`] = gapPageActive;
+      settings[`gap_payment_active_${batchId}`] = gapPaymentActive;
+      localStorage.setItem('gbd_settings_v4', JSON.stringify(settings));
+      
+      if (currentUser && (currentUser.batch_id || 1) === batchId) {
+        const mockGating = resolveMockUserGating(currentUser);
+        currentUser.gap_page_active = mockGating.gapPageActive;
+        currentUser.gap_payment_active = mockGating.gapPaymentActive;
+        localStorage.setItem('gbd_current_user', JSON.stringify(currentUser));
+        
+        const userIdx = users.findIndex(u => u.email === currentUser.email);
+        if (userIdx !== -1) {
+          users[userIdx].gap_page_active = mockGating.gapPageActive;
+          users[userIdx].gap_payment_active = mockGating.gapPaymentActive;
+          localStorage.setItem('gbd_users_v4', JSON.stringify(users));
+        }
+        
+        resolveClientPortalView();
+      }
+      
+      showNotification('Batch dates and settings updated locally.', 'success');
+      await loadBatchSchedules();
+    } catch (err) {
+      console.error('Failed to save batch schedule locally:', err);
+      showNotification(err.message || 'Failed to save batch schedule locally.', 'error');
+    }
+  }
+}
+
+// ==========================================================================
+// MIGRATION LANDING & POPUP CONTROLLERS
+// ==========================================================================
+
+function formatMasterclassDate(dateStr) {
+  if (!dateStr || dateStr === 'Pending') return 'Date Pending';
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return dateStr;
+    
+    const optionsDay = { weekday: 'long' };
+    const dayName = date.toLocaleDateString('en-US', optionsDay);
+    
+    const optionsMonth = { month: 'long' };
+    const monthName = date.toLocaleDateString('en-US', optionsMonth);
+    
+    const dayNum = date.getDate();
+    const year = date.getFullYear();
+    
+    let suffix = 'th';
+    if (dayNum === 1 || dayNum === 21 || dayNum === 31) suffix = 'st';
+    else if (dayNum === 2 || dayNum === 22) suffix = 'nd';
+    else if (dayNum === 3 || dayNum === 23) suffix = 'rd';
+    
+    return `${dayNum}${suffix} ${monthName} ${year}, ${dayName}`;
+  } catch (e) {
+    return dateStr;
+  }
+}
+
+function formatMasterclassTime(dateStr) {
+  if (!dateStr || dateStr === 'Pending') return '7:00 PM – 9:00 PM (IST)';
+  try {
+    if (!dateStr.includes('T') && !dateStr.includes(':')) {
+      return '7:00 PM – 9:00 PM (IST)';
+    }
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) {
+      return '7:00 PM – 9:00 PM (IST)';
+    }
+    
+    const optionsTime = { hour: 'numeric', minute: '2-digit', hour12: true };
+    const formattedStart = date.toLocaleTimeString('en-US', optionsTime);
+    
+    const endDate = new Date(date.getTime() + 2 * 60 * 60 * 1000);
+    const formattedEnd = endDate.toLocaleTimeString('en-US', optionsTime);
+    
+    return `${formattedStart} – ${formattedEnd} (IST)`;
+  } catch (e) {
+    return '7:00 PM – 9:00 PM (IST)';
+  }
+}
+
+function showMasterclassPopup() {
+  const popup = document.getElementById('masterclass-popup');
+  if (popup) {
+    const dateEl = document.getElementById('masterclass-popup-date');
+    const timeEl = document.getElementById('masterclass-popup-time');
+    
+    if (currentUser && currentUser.masterclass_date && dateEl && timeEl) {
+      dateEl.textContent = formatMasterclassDate(currentUser.masterclass_date);
+      timeEl.textContent = formatMasterclassTime(currentUser.masterclass_date);
+    }
+    
+    // Dynamic updates for status button and footer text
+    const statusBtn = document.getElementById('masterclass-popup-status-btn');
+    const statusText = document.getElementById('masterclass-popup-status-text');
+    const footerText = document.getElementById('masterclass-popup-footer-text');
+    
+    if (statusBtn && statusText && footerText && currentUser) {
+      const stage = currentUser.current_stage || 'INVITED';
+      if (stage === 'REGISTRATION') {
+        if (currentUser.gap_page_active) {
+          statusText.textContent = 'PROCEED TO GAP PAGE';
+          footerText.innerHTML = 'Your masterclass attendance is verified.<br>Click above or close this popup to view the GAP page.';
+          statusBtn.style.background = 'var(--accent, #e5a93b)';
+          statusBtn.style.cursor = 'pointer';
+          statusBtn.onclick = () => {
+            closeMasterclassPopup();
+            resolveClientPortalView();
+          };
+        } else {
+          statusText.textContent = 'ATTENDANCE VERIFIED';
+          footerText.innerHTML = 'Your masterclass attendance is verified.<br>The Gap details page will be activated shortly by the admin.';
+          statusBtn.style.background = 'var(--secondary, #28a745)';
+          statusBtn.style.cursor = 'default';
+          statusBtn.onclick = null;
+        }
+      } else {
+        // Default / Invited / Masterclass stage
+        statusText.textContent = 'RESERVED FOR YOUR MASTERCLASS';
+        footerText.innerHTML = 'You are registered.<br>All the details are already in place.';
+        statusBtn.style.background = ''; // default CSS style
+        statusBtn.style.cursor = 'default';
+        statusBtn.onclick = null;
+      }
+    }
+    
+    popup.style.display = 'flex';
+  }
+}
+
+function closeMasterclassPopup() {
+  const popup = document.getElementById('masterclass-popup');
+  if (popup) popup.style.display = 'none';
+}
+
+function proceedToDashboard() {
+  closeMasterclassPopup();
+  document.getElementById('migration-landing-panel').style.display = 'none';
+  document.getElementById('portal-panel').style.display = 'block';
+  switchTab('referral');
+}
+
+function showGapRegistrationPopup() {
+  const popup = document.getElementById('gap-registration-popup');
+  if (popup) {
+    const step1 = document.getElementById('gap-reg-step1');
+    const step2 = document.getElementById('gap-reg-step2');
+
+    if (currentUser && currentUser.current_stage === 'GAP') {
+      if (step1) step1.style.display = 'none';
+      if (step2) step2.style.display = 'block';
+
+      // Populate session details inside modal
+      const gapDateEl = document.getElementById('gap-popup-date');
+      const gapTimeEl = document.getElementById('gap-popup-time');
+      if (gapDateEl && currentUser.gap_date) {
+        gapDateEl.textContent = formatMasterclassDate(currentUser.gap_date);
+      }
+      if (gapTimeEl && currentUser.gap_date) {
+        gapTimeEl.textContent = formatMasterclassTime(currentUser.gap_date);
+      }
+    } else {
+      if (step1) step1.style.display = 'block';
+      if (step2) step2.style.display = 'none';
+
+      const nameInput = document.getElementById('gap-reg-name');
+      const emailInput = document.getElementById('gap-reg-email');
+      const phoneInput = document.getElementById('gap-reg-phone');
+
+      if (currentUser) {
+        if (nameInput) nameInput.value = currentUser.name || '';
+        if (emailInput) emailInput.value = currentUser.email || '';
+        if (phoneInput) phoneInput.value = currentUser.phone || '';
+      }
+    }
+    popup.style.display = 'flex';
+  }
+}
+
+function closeGapRegistrationPopup() {
+  const popup = document.getElementById('gap-registration-popup');
+  if (popup) popup.style.display = 'none';
+  
+  if (currentUser && currentUser.current_stage === 'GAP') {
+    // Rerender portal views
+    resolveClientPortalView();
+    renderCoursesCatalog();
+    
+    // Reset steps back to step 1
+    const step1 = document.getElementById('gap-reg-step1');
+    const step2 = document.getElementById('gap-reg-step2');
+    if (step1 && step2) {
+      step1.style.display = 'block';
+      step2.style.display = 'none';
+    }
+  }
+}
+
+function finishGapRegistration() {
+  closeGapRegistrationPopup();
+}
+
+async function submitGapRegistration(event) {
+  event.preventDefault();
+  console.log('Gap registration form submitted.');
+  const nameEl = document.getElementById('gap-reg-name');
+  const phoneEl = document.getElementById('gap-reg-phone');
+
+  if (!nameEl || !phoneEl) {
+    console.error('Gap registration inputs not found in DOM.');
+    showNotification('Registration inputs missing. Please refresh and try again.', 'error');
+    return;
+  }
+
+  const name = nameEl.value;
+  const phone = phoneEl.value;
+  console.log('Submitting data:', { name, phone });
+
+  if (useBackend) {
+    try {
+      const res = await fetch('/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, phone })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to complete registration');
+
+      console.log('Registration success response:', data);
+      showNotification('Registration completed! Welcome to the GAP Program.', 'success');
+
+      // Update locally
+      if (!currentUser) {
+        currentUser = { name, phone, email: document.getElementById('gap-reg-email')?.value || '' };
+      } else {
+        currentUser.name = name || currentUser.name;
+        currentUser.phone = phone || currentUser.phone;
+      }
+      currentUser.current_stage = 'GAP';
+      localStorage.setItem('gbd_current_user', JSON.stringify(currentUser));
+      console.log('Session updated locally:', currentUser);
+      
+      const step1 = document.getElementById('gap-reg-step1');
+      const step2 = document.getElementById('gap-reg-step2');
+      if (step1 && step2) {
+        step1.style.display = 'none';
+        step2.style.display = 'block';
+        console.log('Switched to Step 2 details view.');
+      }
+      
+      // Populate session details inside modal
+      const gapDateEl = document.getElementById('gap-popup-date');
+      const gapTimeEl = document.getElementById('gap-popup-time');
+      if (gapDateEl && currentUser.gap_date) {
+        gapDateEl.textContent = formatMasterclassDate(currentUser.gap_date);
+      }
+      if (gapTimeEl && currentUser.gap_date) {
+        gapTimeEl.textContent = formatMasterclassTime(currentUser.gap_date);
+      }
+    } catch (err) {
+      console.error('Gap registration submit error:', err);
+      showNotification(err.message || 'Failed to complete registration', 'error');
+    }
+  } else {
+    try {
+      if (!currentUser) {
+        currentUser = { name, phone, email: document.getElementById('gap-reg-email')?.value || '' };
+      } else {
+        currentUser.name = name || currentUser.name;
+        currentUser.phone = phone || currentUser.phone;
+      }
+      currentUser.current_stage = 'GAP';
+      
+      const userIdx = users.findIndex(u => u.email === currentUser.email);
+      if (userIdx !== -1) {
+        users[userIdx].name = currentUser.name;
+        users[userIdx].phone = currentUser.phone;
+        users[userIdx].current_stage = 'GAP';
+        localStorage.setItem('gbd_users_v4', JSON.stringify(users));
+      }
+      
+      const mockGating = resolveMockUserGating(currentUser);
+      currentUser.gap_page_active = mockGating.gapPageActive;
+      currentUser.gap_payment_active = mockGating.gapPaymentActive;
+      
+      localStorage.setItem('gbd_current_user', JSON.stringify(currentUser));
+      console.log('Session updated locally (simulation mode):', currentUser);
+      
+      showNotification('Registration completed! Welcome to the GAP Program.', 'success');
+      
+      const step1 = document.getElementById('gap-reg-step1');
+      const step2 = document.getElementById('gap-reg-step2');
+      if (step1 && step2) {
+        step1.style.display = 'none';
+        step2.style.display = 'block';
+        console.log('Switched to Step 2 details view.');
+      }
+      
+      const gapDateEl = document.getElementById('gap-popup-date');
+      const gapTimeEl = document.getElementById('gap-popup-time');
+      if (gapDateEl && currentUser.gap_date) {
+        gapDateEl.textContent = formatMasterclassDate(currentUser.gap_date);
+      }
+      if (gapTimeEl && currentUser.gap_date) {
+        gapTimeEl.textContent = formatMasterclassTime(currentUser.gap_date);
+      }
+      
+      resolveClientPortalView();
+    } catch (err) {
+      console.error('Gap registration submit local error:', err);
+      showNotification('Failed to complete registration locally', 'error');
+    }
   }
 }
