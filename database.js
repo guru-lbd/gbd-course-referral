@@ -44,7 +44,7 @@ function run(sql, params = []) {
       // SQLite INSERT returns id, Postgres can return it via RETURNING id
       let finalSql = pgSql;
       if (pgSql.trim().toUpperCase().startsWith('INSERT INTO')) {
-        if (!pgSql.toUpperCase().includes('RETURNING')) {
+        if (!pgSql.toUpperCase().includes('RETURNING') && !pgSql.toLowerCase().includes('system_settings')) {
           finalSql = `${pgSql} RETURNING id`;
         }
       }
@@ -450,7 +450,7 @@ async function seedDatabase() {
   
   // Seed Default System Settings
   const settingsCount = await get('SELECT COUNT(*) as count FROM system_settings');
-  if (settingsCount.count === 0) {
+  if (parseInt(settingsCount.count, 10) === 0) {
     await setSetting('friend_discount_enabled', 'true');
     await setSetting('friend_discount_percent', '10');
     await setSetting('commission_enabled', 'true');
@@ -458,16 +458,16 @@ async function seedDatabase() {
     console.log('Default system settings seeded.');
   }
 
-  // Seed mock batches and users from scratch/seed_data.json or seed_data_test.json
+  // Seed mock batches and users from seed/seed_data.json or seed_data_test.json
   try {
     const seedFile = process.env.NODE_ENV === 'test' ? 'seed_data_test.json' : 'seed_data.json';
-    const seedPath = path.join(__dirname, 'scratch', seedFile);
+    const seedPath = path.join(__dirname, 'seed', seedFile);
     if (fs.existsSync(seedPath)) {
       const seedData = JSON.parse(fs.readFileSync(seedPath, 'utf8'));
 
       // Seed Batches
       const batchCount = await get('SELECT COUNT(*) as count FROM batches');
-      if (batchCount.count === 0) {
+      if (parseInt(batchCount.count, 10) === 0) {
         for (const b of seedData.batches) {
           await run(
             'INSERT INTO batches (name, code, masterclass_date, registration_date, gap_date, bridge_date, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)',
@@ -479,7 +479,7 @@ async function seedDatabase() {
 
       // Seed Users
       const userCount = await get('SELECT COUNT(*) as count FROM users');
-      if (userCount.count === 0) {
+      if (parseInt(userCount.count, 10) === 0) {
         for (const u of seedData.users) {
           const dbBatch = await get('SELECT id FROM batches WHERE code = ?', [u.batch]);
           const batchId = dbBatch ? dbBatch.id : null;
@@ -508,7 +508,7 @@ async function seedDatabase() {
   }
 
   const count = await get('SELECT COUNT(*) as count FROM event_logs');
-  if (count.count === 0) {
+  if (parseInt(count.count, 10) === 0) {
     await logEvent('DatabaseSeeded', {
       batches: 3,
       users: 3
