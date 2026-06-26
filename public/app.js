@@ -59,7 +59,7 @@ function resolveClientPortalView() {
     document.getElementById('migration-landing-panel').style.display = 'none';
     document.getElementById('portal-panel').style.display = 'none';
     renderCourseDetailsPageProgress();
-  } else if (currentUser.gap_page_active && ['INVITED', 'MASTERCLASS', 'REGISTRATION'].includes(stage)) {
+  } else if (currentUser.gap_page_active && stage === 'REGISTRATION') {
     document.getElementById('gap-details-panel').style.display = 'flex';
     document.getElementById('migration-landing-panel').style.display = 'none';
     document.getElementById('portal-panel').style.display = 'none';
