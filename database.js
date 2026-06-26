@@ -578,31 +578,43 @@ async function syncUserStageAndProgress(userId, forceSyncFromStage = false) {
       const certified = currentIdx >= 8;
       const partner_activated = currentIdx >= 8;
 
-      await run(`
-        UPDATE user_progress 
-        SET masterclass_attended = ?, 
-            registration_completed = ?, 
-            gap_completed = ?, 
-            payment_1_completed = ?, 
-            bridge_completed = ?, 
-            payment_2_completed = ?, 
-            certified = ?, 
-            partner_activated = ?
-        WHERE user_id = ?`,
-        [
-          masterclass_attended,
-          registration_completed,
-          gap_completed,
-          payment_1_completed,
-          bridge_completed,
-          payment_2_completed,
-          certified,
-          partner_activated,
-          userId
-        ]
-      );
-      console.log(`[SYNC-FORCE] Updated progress for user ${user.email} to match stage ${currentStage}`);
-      return { progressUpdated: true, stage: currentStage };
+      const needsUpdate = 
+        isTrue(progress.masterclass_attended) !== masterclass_attended ||
+        isTrue(progress.registration_completed) !== registration_completed ||
+        isTrue(progress.gap_completed) !== gap_completed ||
+        isTrue(progress.payment_1_completed) !== payment_1_completed ||
+        isTrue(progress.bridge_completed) !== bridge_completed ||
+        isTrue(progress.payment_2_completed) !== payment_2_completed ||
+        isTrue(progress.certified) !== certified ||
+        isTrue(progress.partner_activated) !== partner_activated;
+
+      if (needsUpdate) {
+        await run(`
+          UPDATE user_progress 
+          SET masterclass_attended = ?, 
+              registration_completed = ?, 
+              gap_completed = ?, 
+              payment_1_completed = ?, 
+              bridge_completed = ?, 
+              payment_2_completed = ?, 
+              certified = ?, 
+              partner_activated = ?
+          WHERE user_id = ?`,
+          [
+            masterclass_attended,
+            registration_completed,
+            gap_completed,
+            payment_1_completed,
+            bridge_completed,
+            payment_2_completed,
+            certified,
+            partner_activated,
+            userId
+          ]
+        );
+        console.log(`[SYNC-FORCE] Updated progress for user ${user.email} to match stage ${currentStage}`);
+      }
+      return { progressUpdated: needsUpdate, stage: currentStage };
     }
 
     if (progressIdx > currentIdx) {
@@ -627,31 +639,43 @@ async function syncUserStageAndProgress(userId, forceSyncFromStage = false) {
       const certified = currentIdx >= 8;
       const partner_activated = currentIdx >= 8;
 
-      await run(`
-        UPDATE user_progress 
-        SET masterclass_attended = ?, 
-            registration_completed = ?, 
-            gap_completed = ?, 
-            payment_1_completed = ?, 
-            bridge_completed = ?, 
-            payment_2_completed = ?, 
-            certified = ?, 
-            partner_activated = ?
-        WHERE user_id = ?`,
-        [
-          masterclass_attended,
-          registration_completed,
-          gap_completed,
-          payment_1_completed,
-          bridge_completed,
-          payment_2_completed,
-          certified,
-          partner_activated,
-          userId
-        ]
-      );
-      console.log(`[SYNC-AUTO] Updated progress for user ${user.email} to match stage ${currentStage}`);
-      return { progressUpdated: true, stage: currentStage };
+      const needsUpdate = 
+        isTrue(progress.masterclass_attended) !== masterclass_attended ||
+        isTrue(progress.registration_completed) !== registration_completed ||
+        isTrue(progress.gap_completed) !== gap_completed ||
+        isTrue(progress.payment_1_completed) !== payment_1_completed ||
+        isTrue(progress.bridge_completed) !== bridge_completed ||
+        isTrue(progress.payment_2_completed) !== payment_2_completed ||
+        isTrue(progress.certified) !== certified ||
+        isTrue(progress.partner_activated) !== partner_activated;
+
+      if (needsUpdate) {
+        await run(`
+          UPDATE user_progress 
+          SET masterclass_attended = ?, 
+              registration_completed = ?, 
+              gap_completed = ?, 
+              payment_1_completed = ?, 
+              bridge_completed = ?, 
+              payment_2_completed = ?, 
+              certified = ?, 
+              partner_activated = ?
+          WHERE user_id = ?`,
+          [
+            masterclass_attended,
+            registration_completed,
+            gap_completed,
+            payment_1_completed,
+            bridge_completed,
+            payment_2_completed,
+            certified,
+            partner_activated,
+            userId
+          ]
+        );
+        console.log(`[SYNC-AUTO] Updated progress for user ${user.email} to match stage ${currentStage}`);
+      }
+      return { progressUpdated: needsUpdate, stage: currentStage };
     }
   } catch (err) {
     console.error(`[SYNC ERROR] Failed to sync stage/progress for user ID ${userId}:`, err.message);
@@ -752,31 +776,43 @@ async function syncAllUsersStageAndProgress() {
         const certified = currentIdx >= 8;
         const partner_activated = currentIdx >= 8;
 
-        await run(`
-          UPDATE user_progress 
-          SET masterclass_attended = ?, 
-              registration_completed = ?, 
-              gap_completed = ?, 
-              payment_1_completed = ?, 
-              bridge_completed = ?, 
-              payment_2_completed = ?, 
-              certified = ?, 
-              partner_activated = ?
-          WHERE user_id = ?`,
-          [
-            masterclass_attended,
-            registration_completed,
-            gap_completed,
-            payment_1_completed,
-            bridge_completed,
-            payment_2_completed,
-            certified,
-            partner_activated,
-            user.id
-          ]
-        );
-        updatedCount++;
-        console.log(`[SYNC-BULK] Updated progress for user ${user.email} to match stage ${currentStage}`);
+        const needsUpdate = 
+          isTrue(progress.masterclass_attended) !== masterclass_attended ||
+          isTrue(progress.registration_completed) !== registration_completed ||
+          isTrue(progress.gap_completed) !== gap_completed ||
+          isTrue(progress.payment_1_completed) !== payment_1_completed ||
+          isTrue(progress.bridge_completed) !== bridge_completed ||
+          isTrue(progress.payment_2_completed) !== payment_2_completed ||
+          isTrue(progress.certified) !== certified ||
+          isTrue(progress.partner_activated) !== partner_activated;
+
+        if (needsUpdate) {
+          await run(`
+            UPDATE user_progress 
+            SET masterclass_attended = ?, 
+                registration_completed = ?, 
+                gap_completed = ?, 
+                payment_1_completed = ?, 
+                bridge_completed = ?, 
+                payment_2_completed = ?, 
+                certified = ?, 
+                partner_activated = ?
+            WHERE user_id = ?`,
+            [
+              masterclass_attended,
+              registration_completed,
+              gap_completed,
+              payment_1_completed,
+              bridge_completed,
+              payment_2_completed,
+              certified,
+              partner_activated,
+              user.id
+            ]
+          );
+          updatedCount++;
+          console.log(`[SYNC-BULK] Updated progress for user ${user.email} to match stage ${currentStage}`);
+        }
       }
     }
 

@@ -937,14 +937,25 @@ app.get('/r/:code', async (req, res) => {
 app.get('/api/admin/data', requireAuth, requireRole(['MD', 'OPERATIONS', 'FINANCE']), async (req, res) => {
   try {
     await db.syncAllUsersStageAndProgress();
-    const users = await db.all('SELECT u.*, b.name as batch_name FROM users u LEFT JOIN batches b ON u.batch_id = b.id ORDER BY u.created_at DESC');
-    const batches = await db.all('SELECT * FROM batches ORDER BY id ASC');
-    const payments = await db.all('SELECT p.*, u.name as user_name FROM payments p JOIN users u ON p.user_id = u.id ORDER BY p.created_at DESC');
-    const notifications = await db.all('SELECT n.*, u.name as user_name FROM notifications n LEFT JOIN users u ON n.user_id = u.id ORDER BY n.id DESC LIMIT 50');
-    const referrals = await db.all('SELECT r.*, p.name as partner_name, s.name as student_name FROM referrals r JOIN users p ON r.partner_id = p.id JOIN users s ON r.student_id = s.id ORDER BY r.created_at DESC');
-    const earnings = await db.all('SELECT e.*, u.name as partner_name FROM earnings e JOIN users u ON e.partner_id = u.id ORDER BY e.created_at DESC');
-    const auditLogs = await db.all('SELECT a.*, u.name as actor_name FROM audit_logs a LEFT JOIN users u ON a.actor_id = u.id ORDER BY a.id DESC LIMIT 50');
-    const events = await db.all('SELECT * FROM event_logs ORDER BY id DESC LIMIT 50');
+    const [
+      users,
+      batches,
+      payments,
+      notifications,
+      referrals,
+      earnings,
+      auditLogs,
+      events
+    ] = await Promise.all([
+      db.all('SELECT u.*, b.name as batch_name FROM users u LEFT JOIN batches b ON u.batch_id = b.id ORDER BY u.created_at DESC'),
+      db.all('SELECT * FROM batches ORDER BY id ASC'),
+      db.all('SELECT p.*, u.name as user_name FROM payments p JOIN users u ON p.user_id = u.id ORDER BY p.created_at DESC'),
+      db.all('SELECT n.*, u.name as user_name FROM notifications n LEFT JOIN users u ON n.user_id = u.id ORDER BY n.id DESC LIMIT 50'),
+      db.all('SELECT r.*, p.name as partner_name, s.name as student_name FROM referrals r JOIN users p ON r.partner_id = p.id JOIN users s ON r.student_id = s.id ORDER BY r.created_at DESC'),
+      db.all('SELECT e.*, u.name as partner_name FROM earnings e JOIN users u ON e.partner_id = u.id ORDER BY e.created_at DESC'),
+      db.all('SELECT a.*, u.name as actor_name FROM audit_logs a LEFT JOIN users u ON a.actor_id = u.id ORDER BY a.id DESC LIMIT 50'),
+      db.all('SELECT * FROM event_logs ORDER BY id DESC LIMIT 50')
+    ]);
 
     res.json({
       success: true,
