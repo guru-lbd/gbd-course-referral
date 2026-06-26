@@ -6,6 +6,29 @@
 const isClientPage = !!document.getElementById('auth-panel');
 const isAdminPage = !!document.getElementById('admin-affiliates-tbody');
 
+// Intercept all fetch requests to automatically attach authorization headers if a session exists
+const originalFetch = window.fetch;
+window.fetch = function (url, options = {}) {
+  const session = localStorage.getItem('gbd_current_user');
+  if (session) {
+    try {
+      const user = JSON.parse(session);
+      if (user && user.email) {
+        options.headers = options.headers || {};
+        if (!options.headers['Authorization']) {
+          options.headers['Authorization'] = `Bearer ${user.email}`;
+        }
+        if (!options.headers['x-session-email']) {
+          options.headers['x-session-email'] = user.email;
+        }
+      }
+    } catch (e) {
+      console.warn('Error parsing auth session for fetch:', e);
+    }
+  }
+  return originalFetch(url, options);
+};
+
 // App Variables
 let users = [];
 let referralProfiles = [];

@@ -14,9 +14,24 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Helper to get session email from cookie or Authorization/custom headers
+function getSessionEmail(req) {
+  let email = req.cookies.session_email;
+  if (!email && req.headers['authorization']) {
+    const authHeader = req.headers['authorization'];
+    if (authHeader.startsWith('Bearer ')) {
+      email = authHeader.substring(7);
+    }
+  }
+  if (!email && req.headers['x-session-email']) {
+    email = req.headers['x-session-email'];
+  }
+  return email || null;
+}
+
 // Auth Middleware
 async function requireAuth(req, res, next) {
-  const email = req.cookies.session_email;
+  const email = getSessionEmail(req);
   if (!email) {
     return res.status(401).json({ error: 'Unauthorized. Please login first.' });
   }
@@ -299,7 +314,7 @@ app.get('/api/debug/otps', (req, res) => {
 
 // GET: Current user session details
 app.get('/api/user', async (req, res) => {
-  const email = req.cookies.session_email;
+  const email = getSessionEmail(req);
   if (!email) {
     return res.status(401).json({ authenticated: false, error: 'Unauthorized.' });
   }
@@ -330,7 +345,7 @@ app.get('/api/user', async (req, res) => {
 
 // GET: Current user stage, progress, and metadata
 app.get('/api/dashboard', async (req, res) => {
-  const email = req.cookies.session_email;
+  const email = getSessionEmail(req);
   if (!email) {
     return res.status(401).json({ error: 'Unauthorized.' });
   }
@@ -698,7 +713,7 @@ app.get('/api/users/me', async (req, res) => {
     return res.status(400).json({ error: 'Email is required.' });
   }
 
-  const sessionEmail = req.cookies.session_email;
+  const sessionEmail = getSessionEmail(req);
   if (!sessionEmail || sessionEmail.toLowerCase() !== email.trim().toLowerCase()) {
     return res.status(401).json({ error: 'Unauthorized.' });
   }
@@ -1377,7 +1392,7 @@ app.post('/api/admin/change-stage', requireAuth, requireRole(['MD', 'OPERATIONS'
 
 // POST: Self registration complete (advances from REGISTRATION to GAP)
 app.post('/api/register', async (req, res) => {
-  const email = req.cookies.session_email;
+  const email = getSessionEmail(req);
   if (!email) {
     return res.status(401).json({ error: 'Unauthorized.' });
   }
@@ -1915,7 +1930,7 @@ async function getDownlineTree(userId) {
 
 // GET: Retrieve referral tree and earnings stats
 app.get('/api/referrals', async (req, res) => {
-  const email = req.cookies.session_email;
+  const email = getSessionEmail(req);
   if (!email) {
     return res.status(401).json({ error: 'Unauthorized.' });
   }
