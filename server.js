@@ -1429,7 +1429,7 @@ app.post('/api/register', async (req, res) => {
       );
     }
 
-    await db.run('UPDATE user_progress SET registration_completed = 1 WHERE user_id = ?', [user.id]);
+    await db.run('UPDATE user_progress SET registration_completed = true WHERE user_id = ?', [user.id]);
     await db.run('UPDATE users SET current_stage = ? WHERE id = ?', ['GAP', user.id]);
     
     await db.logAudit(user.id, 'SelfRegistrationCompleted', 'users', user.id, { current_stage: user.current_stage }, { current_stage: 'GAP' });
@@ -1464,7 +1464,7 @@ app.post('/api/admin/masterclass/attendance', requireAuth, requireRole(['MD', 'O
       return res.status(400).json({ error: 'User is not currently in the MASTERCLASS stage.' });
     }
 
-    const attended = status === 'Attended' ? 1 : 0;
+    const attended = status === 'Attended';
     await db.run('UPDATE user_progress SET masterclass_attended = ? WHERE user_id = ?', [attended, userId]);
     await db.logEvent('AttendanceMarked', { userId, status, sessionType: 'MASTERCLASS' });
 
@@ -1504,7 +1504,7 @@ app.post('/api/admin/gap/complete', requireAuth, requireRole(['MD', 'OPERATIONS'
       return res.status(400).json({ error: 'User is not currently in the GAP stage.' });
     }
 
-    await db.run('UPDATE user_progress SET gap_completed = 1 WHERE user_id = ?', [userId]);
+    await db.run('UPDATE user_progress SET gap_completed = true WHERE user_id = ?', [userId]);
     await db.run('UPDATE users SET current_stage = ? WHERE id = ?', ['PAYMENT_1', userId]);
 
     await db.logAudit(1, 'GapSessionCompleted', 'users', userId, { current_stage: 'GAP' }, { current_stage: 'PAYMENT_1' });
@@ -1538,7 +1538,7 @@ app.post('/api/admin/bridge/complete', requireAuth, requireRole(['MD', 'OPERATIO
       return res.status(400).json({ error: 'User is not currently in the BRIDGE stage.' });
     }
 
-    await db.run('UPDATE user_progress SET bridge_completed = 1 WHERE user_id = ?', [userId]);
+    await db.run('UPDATE user_progress SET bridge_completed = true WHERE user_id = ?', [userId]);
     await db.run('UPDATE users SET current_stage = ? WHERE id = ?', ['PAYMENT_2', userId]);
 
     await db.logAudit(1, 'BridgeCompleted', 'users', userId, { current_stage: 'BRIDGE' }, { current_stage: 'PAYMENT_2' });
@@ -1572,7 +1572,7 @@ app.post('/api/admin/certify', requireAuth, requireRole(['MD', 'OPERATIONS']), a
       return res.status(400).json({ error: 'User is not currently in the CERTIFICATION stage.' });
     }
 
-    await db.run('UPDATE user_progress SET certified = 1, partner_activated = 1 WHERE user_id = ?', [userId]);
+    await db.run('UPDATE user_progress SET certified = true, partner_activated = true WHERE user_id = ?', [userId]);
     await db.run("UPDATE users SET current_stage = 'PARTNER', role = 'PARTNER' WHERE id = ?", [userId]);
 
     const cleanName = user.name.replace(/[^a-zA-Z]/g, '').substring(0, 4).toUpperCase();
@@ -1853,7 +1853,7 @@ app.post('/api/payment/verify', async (req, res) => {
     let nextStage = '';
     if (paymentType === 'PAYMENT_1') {
       nextStage = 'BRIDGE';
-      await db.run('UPDATE user_progress SET payment_1_completed = 1 WHERE user_id = ?', [userId]);
+      await db.run('UPDATE user_progress SET payment_1_completed = true WHERE user_id = ?', [userId]);
       await db.run('UPDATE users SET current_stage = ? WHERE id = ?', [nextStage, userId]);
       
       // Calculate direct referral commission if referred
@@ -1882,7 +1882,7 @@ app.post('/api/payment/verify', async (req, res) => {
 
     } else if (paymentType === 'PAYMENT_2') {
       nextStage = 'CERTIFICATION';
-      await db.run('UPDATE user_progress SET payment_2_completed = 1 WHERE user_id = ?', [userId]);
+      await db.run('UPDATE user_progress SET payment_2_completed = true WHERE user_id = ?', [userId]);
       await db.run('UPDATE users SET current_stage = ? WHERE id = ?', [nextStage, userId]);
     }
 
