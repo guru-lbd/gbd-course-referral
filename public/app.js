@@ -1655,6 +1655,8 @@ async function autoLogin(email, phone) {
     
     if (verifyData.success) {
       showNotification(`Auth Success: Logged in as ${email}`, 'success');
+      currentUser = verifyData.user;
+      localStorage.setItem('gbd_current_user', JSON.stringify(currentUser));
       await checkAdminSession();
       
       if (isClientPage) {
