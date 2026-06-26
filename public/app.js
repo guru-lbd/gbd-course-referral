@@ -37,7 +37,7 @@ let signups = [];
 let eventLogs = [];
 let currentUser = null;
 let cart = [];
-let activeTab = 'referral';
+let activeTab = 'profile';
 let authMode = 'login'; // 'login' or 'register'
 let editingClientEmail = null;
 let editingAffiliateCode = null;
@@ -731,7 +731,7 @@ function initClientPortal() {
     }
     
     resolveClientPortalView();
-    switchTab('referral');
+    switchTab('profile');
   } else {
     document.getElementById('auth-panel').style.display = 'block';
     document.getElementById('portal-panel').style.display = 'none';
@@ -1096,7 +1096,7 @@ async function handleVerifyOtp() {
         setTimeout(() => {
           resolveClientPortalView();
           resetOtpRequest();
-          switchTab('referral');
+          switchTab('profile');
           showNotification(`Welcome back, ${currentUser.name}!`, 'success');
         }, 800);
       } else {
@@ -1128,7 +1128,7 @@ async function handleVerifyOtp() {
       setTimeout(() => {
         resolveClientPortalView();
         resetOtpRequest();
-        switchTab('referral');
+        switchTab('profile');
         showNotification(`Welcome back, ${currentUser.name}!`, 'success');
       }, 800);
     } else {
@@ -3152,7 +3152,7 @@ function proceedToDashboard() {
   closeMasterclassPopup();
   document.getElementById('migration-landing-panel').style.display = 'none';
   document.getElementById('portal-panel').style.display = 'block';
-  switchTab('referral');
+  switchTab('profile');
 }
 
 function showGapRegistrationPopup() {
