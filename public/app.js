@@ -364,7 +364,19 @@ async function initDatabase() {
           fetch('/api/admin/settings')
         ]);
         
-        if (!dataRes.ok) throw new Error('Admin data request failed');
+        if (!dataRes.ok) {
+          if (dataRes.status === 401 || dataRes.status === 403) {
+            console.log('Admin session not authorized yet. Keeping backend mode active.');
+            users = [];
+            referralProfiles = [];
+            clicks = [];
+            signups = [];
+            eventLogs = [];
+            allSignups = [];
+            return;
+          }
+          throw new Error('Admin data request failed');
+        }
         const data = await dataRes.json();
         
         users = data.users || [];
