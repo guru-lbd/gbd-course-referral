@@ -30,9 +30,7 @@
         <div style="display: flex; flex-direction: column; gap: 0.3rem;">
           <div style="display: flex; gap: 0.3rem; align-items: center;">
             <span style="font-size: 0.75rem; color: var(--text-muted); margin-right: 2px;">Login:</span>
-            <button class="btn btn-sm" onclick="autoLogin('md@test.com', '9999990099')" style="font-size: 0.75rem; padding: 2px 6px; cursor: pointer;">MD</button>
-            <button class="btn btn-sm" onclick="autoLogin('ops@test.com', '9999990088')" style="font-size: 0.75rem; padding: 2px 6px; cursor: pointer;">Ops</button>
-            <button class="btn btn-sm" onclick="autoLogin('finance@test.com', '9999990077')" style="font-size: 0.75rem; padding: 2px 6px; cursor: pointer;">Fin</button>
+            <button class="btn btn-sm" onclick="autoLogin('admin@test.com', '9999990000')" style="font-size: 0.75rem; padding: 2px 6px; cursor: pointer; background: var(--primary); border-color: var(--primary);">Admin</button>
           </div>
           <button id="admin-logout-btn" class="btn btn-secondary btn-sm" onclick="logout()" style="font-size: 0.75rem; padding: 2px 6px; width: 100%; display: none; cursor: pointer;">Logout</button>
         </div>
@@ -462,9 +460,7 @@
             <label class="form-label">Role</label>
             <select id="invite-role" class="form-control">
               <option value="USER">USER</option>
-              <option value="OPERATIONS">OPERATIONS</option>
-              <option value="FINANCE">FINANCE</option>
-              <option value="MD">MD</option>
+              <option value="ADMIN">ADMIN</option>
               <option value="PARTNER">PARTNER</option>
             </select>
           </div>
@@ -520,9 +516,7 @@
             <label class="form-label">Role</label>
             <select id="edit-user-role" class="form-control">
               <option value="USER">USER</option>
-              <option value="OPERATIONS">OPERATIONS</option>
-              <option value="FINANCE">FINANCE</option>
-              <option value="MD">MD</option>
+              <option value="ADMIN">ADMIN</option>
               <option value="PARTNER">PARTNER</option>
             </select>
           </div>
@@ -549,6 +543,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=1.8"></script>
+  <script src="app.js?v=1.9"></script>
 </body>
 </html>

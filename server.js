@@ -934,7 +934,7 @@ app.get('/r/:code', async (req, res) => {
    ========================================================================== */
 
 // GET: Fetch unified admin dataset
-app.get('/api/admin/data', requireAuth, requireRole(['MD', 'OPERATIONS', 'FINANCE']), async (req, res) => {
+app.get('/api/admin/data', requireAuth, requireRole(['ADMIN']), async (req, res) => {
   try {
     await db.syncAllUsersStageAndProgress();
     const [
@@ -976,7 +976,7 @@ app.get('/api/admin/data', requireAuth, requireRole(['MD', 'OPERATIONS', 'FINANC
 });
 
 // DELETE: Delete a client user account (cascades and clears their affiliate profile)
-app.delete('/api/admin/user/:email', requireAuth, requireRole(['MD']), async (req, res) => {
+app.delete('/api/admin/user/:email', requireAuth, requireRole(['ADMIN']), async (req, res) => {
   const { email } = req.params;
   try {
     // Delete user from users table
@@ -998,7 +998,7 @@ app.delete('/api/admin/user/:email', requireAuth, requireRole(['MD']), async (re
 });
 
 // DELETE: Delete a specific affiliate/referral profile
-app.delete('/api/admin/affiliate/:code', requireAuth, requireRole(['MD']), async (req, res) => {
+app.delete('/api/admin/affiliate/:code', requireAuth, requireRole(['ADMIN']), async (req, res) => {
   const { code } = req.params;
   try {
     await db.run('DELETE FROM affiliates WHERE affiliate_code = ?', [code.trim().toUpperCase()]);
@@ -1011,7 +1011,7 @@ app.delete('/api/admin/affiliate/:code', requireAuth, requireRole(['MD']), async
 });
 
 // PUT: Edit client account details
-app.put('/api/admin/user/:email', requireAuth, requireRole(['MD', 'OPERATIONS']), async (req, res) => {
+app.put('/api/admin/user/:email', requireAuth, requireRole(['ADMIN']), async (req, res) => {
   const { email } = req.params;
   const { name, phone, role, current_stage, batch_id } = req.body;
   if (!name || !phone) {
@@ -1054,7 +1054,7 @@ app.put('/api/admin/user/:email', requireAuth, requireRole(['MD', 'OPERATIONS'])
 });
 
 // POST: Create a new user (Admin invite/creation)
-app.post('/api/admin/user', requireAuth, requireRole(['MD', 'OPERATIONS']), async (req, res) => {
+app.post('/api/admin/user', requireAuth, requireRole(['ADMIN']), async (req, res) => {
   const { name, email, phone, role, current_stage, batch_id } = req.body;
   if (!name || !email || !phone) {
     return res.status(400).json({ error: 'Name, email, and phone are required.' });
@@ -1090,7 +1090,7 @@ app.post('/api/admin/user', requireAuth, requireRole(['MD', 'OPERATIONS']), asyn
 });
 
 // PUT: Rearrange/move client node in tree (change referrer)
-app.put('/api/admin/user/:email/referrer', requireAuth, requireRole(['MD', 'OPERATIONS']), async (req, res) => {
+app.put('/api/admin/user/:email/referrer', requireAuth, requireRole(['ADMIN']), async (req, res) => {
   const { email } = req.params;
   const { referred_by } = req.body; // Can be a string email, or empty/null to remove referrer
 
@@ -1157,7 +1157,7 @@ app.put('/api/admin/user/:email/referrer', requireAuth, requireRole(['MD', 'OPER
 
 
 // PUT: Edit affiliate profile codes
-app.put('/api/admin/affiliate/:code', requireAuth, requireRole(['MD', 'OPERATIONS']), async (req, res) => {
+app.put('/api/admin/affiliate/:code', requireAuth, requireRole(['ADMIN']), async (req, res) => {
   const { code } = req.params;
   const { affiliate_code, coupon_code } = req.body;
   if (!affiliate_code || !coupon_code) {
@@ -1194,7 +1194,7 @@ app.put('/api/admin/affiliate/:code', requireAuth, requireRole(['MD', 'OPERATION
 });
 
 // GET: Fetch system settings
-app.get('/api/admin/settings', requireAuth, requireRole(['MD', 'OPERATIONS', 'FINANCE']), async (req, res) => {
+app.get('/api/admin/settings', requireAuth, requireRole(['ADMIN']), async (req, res) => {
   try {
     const friendDiscountEnabled = (await db.getSetting('friend_discount_enabled', 'true')) === 'true';
     const friendDiscountPercent = parseInt(await db.getSetting('friend_discount_percent', '10'), 10) || 10;
@@ -1226,7 +1226,7 @@ app.get('/api/admin/settings', requireAuth, requireRole(['MD', 'OPERATIONS', 'FI
 });
 
 // POST: Update system settings
-app.post('/api/admin/settings', requireAuth, requireRole(['MD', 'OPERATIONS']), async (req, res) => {
+app.post('/api/admin/settings', requireAuth, requireRole(['ADMIN']), async (req, res) => {
   const { friend_discount_enabled, friend_discount_percent, commission_enabled, commission_amount, gap_page_active_1, gap_page_active_2, gap_page_active_3, gap_payment_active_1, gap_payment_active_2, gap_payment_active_3 } = req.body;
   try {
     if (friend_discount_enabled !== undefined) {
@@ -1281,7 +1281,7 @@ app.post('/api/admin/settings', requireAuth, requireRole(['MD', 'OPERATIONS']), 
 });
 
 // POST: Wipe database and reset seed data
-app.post('/api/admin/reset', requireAuth, requireRole(['MD']), async (req, res) => {
+app.post('/api/admin/reset', requireAuth, requireRole(['ADMIN']), async (req, res) => {
   try {
     const tables = [
       'audit_logs',
@@ -1310,7 +1310,7 @@ app.post('/api/admin/reset', requireAuth, requireRole(['MD']), async (req, res) 
 });
 
 // POST: Clear event activity log
-app.post('/api/events/clear', requireAuth, requireRole(['MD']), async (req, res) => {
+app.post('/api/events/clear', requireAuth, requireRole(['ADMIN']), async (req, res) => {
   try {
     await db.run('DELETE FROM event_logs');
     await db.logEvent('ActivityLogCleared', { timestamp: new Date().toISOString() });
@@ -1336,7 +1336,7 @@ app.get('/api/batches', async (req, res) => {
 });
 
 // POST: Modify batch dates with optional 2-day gap cascade
-app.post('/api/admin/change-batch-dates', requireAuth, requireRole(['MD', 'OPERATIONS']), async (req, res) => {
+app.post('/api/admin/change-batch-dates', requireAuth, requireRole(['ADMIN']), async (req, res) => {
   const { batchId, masterclassDate, registrationDate, gapDate, bridgeDate, cascade, gapPageActive, gapPaymentActive } = req.body;
   if (!batchId) {
     return res.status(400).json({ error: 'Batch ID is required.' });
@@ -1433,7 +1433,7 @@ app.post('/api/admin/change-batch-dates', requireAuth, requireRole(['MD', 'OPERA
 });
 
 // POST: Admin manual stage override
-app.post('/api/admin/change-stage', requireAuth, requireRole(['MD', 'OPERATIONS']), async (req, res) => {
+app.post('/api/admin/change-stage', requireAuth, requireRole(['ADMIN']), async (req, res) => {
   const { userId, newStage } = req.body;
   const STAGES = [
     "INVITED",
@@ -1552,7 +1552,7 @@ app.post('/api/register', async (req, res) => {
 });
 
 // POST: Admin marks Masterclass attendance (advances from MASTERCLASS to REGISTRATION)
-app.post('/api/admin/masterclass/attendance', requireAuth, requireRole(['MD', 'OPERATIONS']), async (req, res) => {
+app.post('/api/admin/masterclass/attendance', requireAuth, requireRole(['ADMIN']), async (req, res) => {
   const { userId, status } = req.body;
   if (!userId || !status) {
     return res.status(400).json({ error: 'User ID and status are required.' });
@@ -1592,7 +1592,7 @@ app.post('/api/admin/masterclass/attendance', requireAuth, requireRole(['MD', 'O
 });
 
 // POST: Complete GAP online Zoom session (advances from GAP to PAYMENT_1)
-app.post('/api/admin/gap/complete', requireAuth, requireRole(['MD', 'OPERATIONS']), async (req, res) => {
+app.post('/api/admin/gap/complete', requireAuth, requireRole(['ADMIN']), async (req, res) => {
   const { userId } = req.body;
   if (!userId) {
     return res.status(400).json({ error: 'User ID is required.' });
@@ -1626,7 +1626,7 @@ app.post('/api/admin/gap/complete', requireAuth, requireRole(['MD', 'OPERATIONS'
 });
 
 // POST: Complete Bridge sessions (advances from BRIDGE to PAYMENT_2)
-app.post('/api/admin/bridge/complete', requireAuth, requireRole(['MD', 'OPERATIONS']), async (req, res) => {
+app.post('/api/admin/bridge/complete', requireAuth, requireRole(['ADMIN']), async (req, res) => {
   const { userId } = req.body;
   if (!userId) {
     return res.status(400).json({ error: 'User ID is required.' });
@@ -1660,7 +1660,7 @@ app.post('/api/admin/bridge/complete', requireAuth, requireRole(['MD', 'OPERATIO
 });
 
 // POST: Certify graduate and activate as Partner (advances from CERTIFICATION to PARTNER)
-app.post('/api/admin/certify', requireAuth, requireRole(['MD', 'OPERATIONS']), async (req, res) => {
+app.post('/api/admin/certify', requireAuth, requireRole(['ADMIN']), async (req, res) => {
   const { userId } = req.body;
   if (!userId) {
     return res.status(400).json({ error: 'User ID is required.' });
@@ -2049,7 +2049,7 @@ app.get('/api/referrals', async (req, res) => {
     let viewAll = false;
 
     // MD or OPERATIONS role can bypass and view all trees or a specific user's tree
-    if (['MD', 'OPERATIONS'].includes(user.role)) {
+    if (user.role === 'ADMIN') {
       if (req.query.view === 'all') {
         viewAll = true;
       } else if (req.query.userId) {
@@ -2101,7 +2101,7 @@ app.get('/api/referrals', async (req, res) => {
 });
 
 // POST: Admin records a coaching delivery participant (₹10,000 earining per student)
-app.post('/api/admin/delivery/add', requireAuth, requireRole(['MD', 'OPERATIONS']), async (req, res) => {
+app.post('/api/admin/delivery/add', requireAuth, requireRole(['ADMIN']), async (req, res) => {
   const { partnerId, participantName, participantEmail } = req.body;
   if (!partnerId || !participantName) {
     return res.status(400).json({ error: 'Partner ID and participant name are required.' });
@@ -2191,7 +2191,7 @@ async function checkAndQueueReminders() {
 }
 
 // POST: Broadcast notifications (Single User, Batch, or All Users)
-app.post('/api/admin/send-notification', requireAuth, requireRole(['MD', 'OPERATIONS']), async (req, res) => {
+app.post('/api/admin/send-notification', requireAuth, requireRole(['ADMIN']), async (req, res) => {
   const { userId, batchId, target, channel, subject, message, sendNow } = req.body;
   if (!channel || !message || !target) {
     return res.status(400).json({ error: 'Target, channel, and message are required.' });
@@ -2241,7 +2241,7 @@ app.post('/api/admin/send-notification', requireAuth, requireRole(['MD', 'OPERAT
 });
 
 // POST: Trigger manual scan for upcoming event reminders (Developer utility)
-app.post('/api/admin/notifications/check-reminders', requireAuth, requireRole(['MD', 'OPERATIONS']), async (req, res) => {
+app.post('/api/admin/notifications/check-reminders', requireAuth, requireRole(['ADMIN']), async (req, res) => {
   try {
     await checkAndQueueReminders();
     res.json({ success: true, message: 'Upcoming reminders scanned and queued.' });

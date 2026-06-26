@@ -1,0 +1,110 @@
+{
+  "batches": [
+    {
+      "code": "OLD_BIG_SISTER",
+      "name": "Old Big Sister",
+      "masterclass_date": "2026-06-20",
+      "registration_date": "2026-06-21",
+      "gap_date": "2026-06-22",
+      "bridge_date": "2026-06-24"
+    },
+    {
+      "code": "NEW_BIG_SISTER",
+      "name": "New Big Sister",
+      "masterclass_date": "2026-06-22",
+      "registration_date": "2026-06-23",
+      "gap_date": "2026-06-24",
+      "bridge_date": "2026-06-26"
+    },
+    {
+      "code": "SS_CERTIFIED",
+      "name": "SS Certified",
+      "masterclass_date": "2026-06-24",
+      "registration_date": "2026-06-25",
+      "gap_date": "2026-06-26",
+      "bridge_date": "2026-06-28"
+    }
+  ],
+  "users": [
+    {
+      "name": "Guru",
+      "email": "guru@pujapuneet.com",
+      "phone": "7604804164",
+      "batch": "OLD_BIG_SISTER",
+      "stage": "INVITED",
+      "role": "USER"
+    },
+    {
+      "name": "Vignesh",
+      "email": "vignesh@pujapuneet.com",
+      "phone": "6379882719",
+      "batch": "NEW_BIG_SISTER",
+      "stage": "INVITED",
+      "role": "USER"
+    },
+    {
+      "name": "Charles",
+      "email": "charles@pujapuneet.com",
+      "phone": "7000000003",
+      "batch": "SS_CERTIFIED",
+      "stage": "INVITED",
+      "role": "USER"
+    },
+    {
+      "name": "Megha",
+      "email": "srguruprasath25@gmail.com",
+      "phone": "7000000004",
+      "batch": "NEW_BIG_SISTER",
+      "stage": "INVITED",
+      "role": "USER"
+    },
+    {
+      "name": "Sonam",
+      "email": "sonampujapuneet@gmail.com",
+      "phone": "7000000005",
+      "batch": "SS_CERTIFIED",
+      "stage": "INVITED",
+      "role": "USER"
+    },
+    {
+      "name": "Sweta",
+      "email": "swetapujapuneet@gmail.com",
+      "phone": "7000000006",
+      "batch": "OLD_BIG_SISTER",
+      "stage": "INVITED",
+      "role": "USER"
+    },
+    {
+      "name": "Puja info",
+      "email": "info@pujapuneet.com",
+      "phone": "7000000007",
+      "batch": "SS_CERTIFIED",
+      "stage": "INVITED",
+      "role": "USER"
+    },
+    {
+      "name": "Puja Gupta",
+      "email": "pujaguptalbd@gmail.com",
+      "phone": "7000000008",
+      "batch": "NEW_BIG_SISTER",
+      "stage": "INVITED",
+      "role": "USER"
+    },
+    {
+      "name": "Raabiya",
+      "email": "raabiya@pujapuneet.com",
+      "phone": "7000000009",
+      "batch": "OLD_BIG_SISTER",
+      "stage": "INVITED",
+      "role": "USER"
+    },
+    {
+      "name": "Admin",
+      "email": "admin@test.com",
+      "phone": "9999990000",
+      "batch": "OLD_BIG_SISTER",
+      "stage": "PARTNER",
+      "role": "ADMIN"
+    }
+  ]
+}

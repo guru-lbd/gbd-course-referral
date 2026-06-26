@@ -1,0 +1,62 @@
+{
+  "batches": [
+    {
+      "code": "OLD_BIG_SISTER",
+      "name": "Old Big Sister",
+      "masterclass_date": "2026-06-20",
+      "registration_date": "2026-06-21",
+      "gap_date": "2026-06-22",
+      "bridge_date": "2026-06-24"
+    },
+    {
+      "code": "NEW_BIG_SISTER",
+      "name": "New Big Sister",
+      "masterclass_date": "2026-06-22",
+      "registration_date": "2026-06-23",
+      "gap_date": "2026-06-24",
+      "bridge_date": "2026-06-26"
+    },
+    {
+      "code": "SS_CERTIFIED",
+      "name": "SS Certified",
+      "masterclass_date": "2026-06-24",
+      "registration_date": "2026-06-25",
+      "gap_date": "2026-06-26",
+      "bridge_date": "2026-06-28"
+    }
+  ],
+  "users": [
+    {
+      "name": "User 1",
+      "email": "user1@test.com",
+      "phone": "9999990001",
+      "batch": "OLD_BIG_SISTER",
+      "stage": "MASTERCLASS",
+      "role": "USER"
+    },
+    {
+      "name": "User 2",
+      "email": "user2@test.com",
+      "phone": "9999990002",
+      "batch": "OLD_BIG_SISTER",
+      "stage": "MASTERCLASS",
+      "role": "USER"
+    },
+    {
+      "name": "User 3",
+      "email": "user3@test.com",
+      "phone": "9999990003",
+      "batch": "NEW_BIG_SISTER",
+      "stage": "INVITED",
+      "role": "USER"
+    },
+    {
+      "name": "Admin",
+      "email": "admin@test.com",
+      "phone": "9999990000",
+      "batch": "OLD_BIG_SISTER",
+      "stage": "PARTNER",
+      "role": "ADMIN"
+    }
+  ]
+}

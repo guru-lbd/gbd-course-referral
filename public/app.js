@@ -1601,7 +1601,7 @@ async function checkAdminSession() {
   try {
     const res = await fetch('/api/user');
     const data = await res.json();
-    if (data.authenticated && ['MD', 'OPERATIONS', 'FINANCE'].includes(data.user.role)) {
+    if (data.authenticated && data.user.role === 'ADMIN') {
       emailEl.textContent = data.user.email;
       roleEl.textContent = data.user.role;
       roleEl.style.background = getRoleBadgeColor(data.user.role);
@@ -1624,9 +1624,7 @@ async function checkAdminSession() {
 }
 
 function getRoleBadgeColor(role) {
-  if (role === 'MD') return 'var(--danger)';
-  if (role === 'OPERATIONS') return 'var(--secondary)';
-  if (role === 'FINANCE') return 'var(--success)';
+  if (role === 'ADMIN') return 'var(--danger)';
   if (role === 'PARTNER') return '#6f42c1';
   return '#6c757d';
 }
