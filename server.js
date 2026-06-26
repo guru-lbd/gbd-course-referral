@@ -303,6 +303,69 @@ app.post('/api/auth/verify-otp', async (req, res) => {
   }
 });
 
+// POST: Fast path quick login for admin impersonation or quick role switching
+app.post('/api/auth/quick-login', async (req, res) => {
+  const { email, phone } = req.body;
+  if (!email || !phone) {
+    return res.status(400).json({ error: 'Email and phone number are required.' });
+  }
+
+  try {
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPhone = phone.trim();
+
+    // Verify user exists with matching email AND phone
+    const user = await db.get(
+      'SELECT * FROM users WHERE LOWER(email) = ? AND phone = ?',
+      [cleanEmail, cleanPhone]
+    );
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: 'Access Restricted. Invalid credentials.'
+      });
+    }
+
+    // Set cookies directly (bypassing OTP entirely!)
+    const parentDomain = process.env.PARENT_DOMAIN || null;
+    const cookieOptions = {
+      maxAge: 24 * 60 * 60 * 1000, // 1 day
+      httpOnly: true,
+      path: '/'
+    };
+    if (parentDomain) {
+      cookieOptions.domain = parentDomain;
+    }
+
+    res.cookie('session_email', user.email, cookieOptions);
+    res.cookie('session_role', user.role, cookieOptions);
+
+    await db.logEvent('UserQuickLoggedIn', { email: user.email, role: user.role });
+
+    // Sync user stage and progress
+    await db.syncUserStageAndProgress(user.id);
+
+    res.json({
+      success: true,
+      message: 'Quick login successful.',
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        current_stage: user.current_stage,
+        batch_id: user.batch_id
+      }
+    });
+
+  } catch (err) {
+    console.error('Quick login error:', err);
+    res.status(500).json({ error: 'Failed to process quick login.' });
+  }
+});
+
 // POST: Logout user
 app.post('/api/auth/logout', (req, res) => {
   const parentDomain = process.env.PARENT_DOMAIN || null;

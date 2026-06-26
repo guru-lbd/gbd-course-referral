@@ -1632,49 +1632,25 @@ function getRoleBadgeColor(role) {
 }
 
 async function autoLogin(email, phone) {
-  showNotification(`Requesting OTP for ${email}...`, 'success');
+  showNotification(`Logging in as ${email}...`, 'success');
   try {
-    const reqRes = await fetch('/api/auth/request-otp', {
+    const res = await fetch('/api/auth/quick-login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, phone })
     });
-    const reqData = await reqRes.json();
-    if (!reqData.success) {
-      showNotification(`OTP request failed: ${reqData.message}`, 'error');
-      return;
-    }
-
-    const debugRes = await fetch('/api/debug/otps');
-    const debugData = await debugRes.json();
-    const userOtp = debugData.otps[email.toLowerCase()];
+    const data = await res.json();
     
-    if (!userOtp) {
-      showNotification(`No debug OTP found for ${email}.`, 'error');
-      return;
-    }
-
-    const verifyRes = await fetch('/api/auth/verify-otp', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email,
-        emailOtp: userOtp.emailOtp,
-        phoneOtp: userOtp.phoneOtp
-      })
-    });
-    const verifyData = await verifyRes.json();
-    
-    if (verifyData.success) {
+    if (data.success) {
       showNotification(`Auth Success: Logged in as ${email}`, 'success');
-      currentUser = verifyData.user;
+      currentUser = data.user;
       localStorage.setItem('gbd_current_user', JSON.stringify(currentUser));
       await checkAdminSession();
       
       if (isClientPage) {
         location.reload();
       } else {
-        const role = verifyData.user ? verifyData.user.role : 'USER';
+        const role = data.user ? data.user.role : 'USER';
         if (role === 'USER') {
           showNotification('Logged in as client. Redirecting to Client Portal...', 'success');
           setTimeout(() => {
@@ -1685,7 +1661,7 @@ async function autoLogin(email, phone) {
         }
       }
     } else {
-      showNotification(`Verification failed: ${verifyData.message}`, 'error');
+      showNotification(`Login failed: ${data.message}`, 'error');
     }
   } catch (err) {
     showNotification(`Auto-login error: ${err.message}`, 'error');

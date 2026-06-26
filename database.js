@@ -659,14 +659,129 @@ async function syncUserStageAndProgress(userId, forceSyncFromStage = false) {
   return null;
 }
 
-// Sync all users stage and progress records
+// Sync all users stage and progress records (Optimized bulk execution)
 async function syncAllUsersStageAndProgress() {
   try {
-    const users = await all('SELECT id FROM users');
-    for (const u of users) {
-      await syncUserStageAndProgress(u.id);
+    console.log('[SYNC] Starting optimized bulk stage-progress synchronization...');
+    const startTime = Date.now();
+
+    // 1. Fetch all users and all progress in parallel
+    const [users, progresses] = await Promise.all([
+      all('SELECT id, email, current_stage, role FROM users'),
+      all('SELECT * FROM user_progress')
+    ]);
+
+    const progressMap = new Map();
+    for (const p of progresses) {
+      progressMap.set(p.user_id, p);
     }
-    console.log('[SYNC] Successfully completed synchronization for all users.');
+
+    const stages = [
+      'INVITED',
+      'MASTERCLASS',
+      'REGISTRATION',
+      'GAP',
+      'PAYMENT_1',
+      'BRIDGE',
+      'PAYMENT_2',
+      'CERTIFICATION',
+      'PARTNER'
+    ];
+
+    const isTrue = (val) => val === true || val === 1 || val === 'true';
+    let updatedCount = 0;
+
+    for (const user of users) {
+      let progress = progressMap.get(user.id);
+      if (!progress) {
+        // Create progress record if missing
+        await run('INSERT INTO user_progress (user_id) VALUES (?)', [user.id]);
+        progress = {
+          user_id: user.id,
+          masterclass_attended: false,
+          registration_completed: false,
+          gap_completed: false,
+          payment_1_completed: false,
+          bridge_completed: false,
+          payment_2_completed: false,
+          certified: false,
+          partner_activated: false
+        };
+      }
+
+      // Determine stage implied by progress checkboxes
+      let progressStage = 'INVITED';
+      if (isTrue(progress.certified) || isTrue(progress.partner_activated)) {
+        progressStage = 'PARTNER';
+      } else if (isTrue(progress.payment_2_completed)) {
+        progressStage = 'CERTIFICATION';
+      } else if (isTrue(progress.bridge_completed)) {
+        progressStage = 'PAYMENT_2';
+      } else if (isTrue(progress.payment_1_completed)) {
+        progressStage = 'BRIDGE';
+      } else if (isTrue(progress.gap_completed)) {
+        progressStage = 'PAYMENT_1';
+      } else if (isTrue(progress.registration_completed)) {
+        progressStage = 'GAP';
+      } else if (isTrue(progress.masterclass_attended)) {
+        progressStage = 'REGISTRATION';
+      }
+
+      const currentStage = user.current_stage ? user.current_stage.toUpperCase() : 'INVITED';
+      const currentIdx = stages.indexOf(currentStage) !== -1 ? stages.indexOf(currentStage) : 0;
+      const progressIdx = stages.indexOf(progressStage);
+
+      if (progressIdx > currentIdx) {
+        // Progress is ahead. Update stage.
+        const targetStage = progressStage;
+        await run('UPDATE users SET current_stage = ?, updated_at = ? WHERE id = ?', [targetStage, new Date().toISOString(), user.id]);
+        
+        if (targetStage === 'PARTNER' && user.role !== 'PARTNER') {
+          await run("UPDATE users SET role = 'PARTNER' WHERE id = ?", [user.id]);
+        }
+        updatedCount++;
+        console.log(`[SYNC-BULK] Advanced user ${user.email} stage from ${currentStage} to ${targetStage} based on progress`);
+      } else if (currentIdx > progressIdx) {
+        // Stage is ahead. Update checkboxes to match.
+        const masterclass_attended = currentIdx >= 2;
+        const registration_completed = currentIdx >= 3;
+        const gap_completed = currentIdx >= 4;
+        const payment_1_completed = currentIdx >= 5;
+        const bridge_completed = currentIdx >= 6;
+        const payment_2_completed = currentIdx >= 7;
+        const certified = currentIdx >= 8;
+        const partner_activated = currentIdx >= 8;
+
+        await run(`
+          UPDATE user_progress 
+          SET masterclass_attended = ?, 
+              registration_completed = ?, 
+              gap_completed = ?, 
+              payment_1_completed = ?, 
+              bridge_completed = ?, 
+              payment_2_completed = ?, 
+              certified = ?, 
+              partner_activated = ?
+          WHERE user_id = ?`,
+          [
+            masterclass_attended,
+            registration_completed,
+            gap_completed,
+            payment_1_completed,
+            bridge_completed,
+            payment_2_completed,
+            certified,
+            partner_activated,
+            user.id
+          ]
+        );
+        updatedCount++;
+        console.log(`[SYNC-BULK] Updated progress for user ${user.email} to match stage ${currentStage}`);
+      }
+    }
+
+    const duration = Date.now() - startTime;
+    console.log(`[SYNC] Bulk synchronization completed in ${duration}ms. Updated ${updatedCount} users.`);
   } catch (err) {
     console.error('[SYNC ALL ERROR] Failed to sync all users:', err.message);
   }
