@@ -3,7 +3,8 @@ const { Pool } = require('pg');
 const path = require('path');
 const fs = require('fs');
 
-const isPostgres = !!process.env.POSTGRES_URL;
+const postgresUrl = process.env.POSTGRES_URL || process.env.DATABASE_URL;
+const isPostgres = !!postgresUrl;
 
 let db;
 let pool;
@@ -12,7 +13,7 @@ let initPromise = null;
 if (isPostgres) {
   console.log('Connecting to PostgreSQL database...');
   pool = new Pool({
-    connectionString: process.env.POSTGRES_URL,
+    connectionString: postgresUrl,
     ssl: { rejectUnauthorized: false }
   });
 } else {
@@ -516,6 +517,161 @@ async function seedDatabase() {
   }
 }
 
+// Sync user stage and progress tables
+async function syncUserStageAndProgress(userId, forceSyncFromStage = false) {
+  try {
+    // 1. Fetch user details
+    const user = await get('SELECT id, name, email, current_stage, role FROM users WHERE id = ?', [userId]);
+    if (!user) return null;
+
+    // 2. Fetch or create user progress record
+    let progress = await get('SELECT * FROM user_progress WHERE user_id = ?', [userId]);
+    if (!progress) {
+      await run('INSERT INTO user_progress (user_id) VALUES (?)', [userId]);
+      progress = await get('SELECT * FROM user_progress WHERE user_id = ?', [userId]);
+    }
+
+    const stages = [
+      'INVITED',
+      'MASTERCLASS',
+      'REGISTRATION',
+      'GAP',
+      'PAYMENT_1',
+      'BRIDGE',
+      'PAYMENT_2',
+      'CERTIFICATION',
+      'PARTNER'
+    ];
+
+    const isTrue = (val) => val === true || val === 1 || val === 'true';
+
+    // 3. Determine stage implied by progress checkboxes
+    let progressStage = 'INVITED';
+    if (isTrue(progress.certified) || isTrue(progress.partner_activated)) {
+      progressStage = 'PARTNER';
+    } else if (isTrue(progress.payment_2_completed)) {
+      progressStage = 'CERTIFICATION';
+    } else if (isTrue(progress.bridge_completed)) {
+      progressStage = 'PAYMENT_2';
+    } else if (isTrue(progress.payment_1_completed)) {
+      progressStage = 'BRIDGE';
+    } else if (isTrue(progress.gap_completed)) {
+      progressStage = 'PAYMENT_1';
+    } else if (isTrue(progress.registration_completed)) {
+      progressStage = 'GAP';
+    } else if (isTrue(progress.masterclass_attended)) {
+      progressStage = 'REGISTRATION';
+    }
+
+    const currentStage = user.current_stage ? user.current_stage.toUpperCase() : 'INVITED';
+    const currentIdx = stages.indexOf(currentStage) !== -1 ? stages.indexOf(currentStage) : 0;
+    const progressIdx = stages.indexOf(progressStage);
+
+    if (forceSyncFromStage) {
+      // Trust stage, update checkboxes to match
+      const masterclass_attended = currentIdx >= 2;
+      const registration_completed = currentIdx >= 3;
+      const gap_completed = currentIdx >= 4;
+      const payment_1_completed = currentIdx >= 5;
+      const bridge_completed = currentIdx >= 6;
+      const payment_2_completed = currentIdx >= 7;
+      const certified = currentIdx >= 8;
+      const partner_activated = currentIdx >= 8;
+
+      await run(`
+        UPDATE user_progress 
+        SET masterclass_attended = ?, 
+            registration_completed = ?, 
+            gap_completed = ?, 
+            payment_1_completed = ?, 
+            bridge_completed = ?, 
+            payment_2_completed = ?, 
+            certified = ?, 
+            partner_activated = ?
+        WHERE user_id = ?`,
+        [
+          masterclass_attended,
+          registration_completed,
+          gap_completed,
+          payment_1_completed,
+          bridge_completed,
+          payment_2_completed,
+          certified,
+          partner_activated,
+          userId
+        ]
+      );
+      console.log(`[SYNC-FORCE] Updated progress for user ${user.email} to match stage ${currentStage}`);
+      return { progressUpdated: true, stage: currentStage };
+    }
+
+    if (progressIdx > currentIdx) {
+      // Progress is ahead. Update stage to match progress.
+      const targetStage = progressStage;
+      await run('UPDATE users SET current_stage = ?, updated_at = ? WHERE id = ?', [targetStage, new Date().toISOString(), userId]);
+      
+      if (targetStage === 'PARTNER' && user.role !== 'PARTNER') {
+        await run("UPDATE users SET role = 'PARTNER' WHERE id = ?", [userId]);
+      }
+      
+      console.log(`[SYNC-AUTO] Advanced user ${user.email} stage from ${currentStage} to ${targetStage} based on progress`);
+      return { stageUpdated: true, newStage: targetStage };
+    } else if (currentIdx > progressIdx) {
+      // Stage is ahead of progress. Update checkboxes to match stage.
+      const masterclass_attended = currentIdx >= 2;
+      const registration_completed = currentIdx >= 3;
+      const gap_completed = currentIdx >= 4;
+      const payment_1_completed = currentIdx >= 5;
+      const bridge_completed = currentIdx >= 6;
+      const payment_2_completed = currentIdx >= 7;
+      const certified = currentIdx >= 8;
+      const partner_activated = currentIdx >= 8;
+
+      await run(`
+        UPDATE user_progress 
+        SET masterclass_attended = ?, 
+            registration_completed = ?, 
+            gap_completed = ?, 
+            payment_1_completed = ?, 
+            bridge_completed = ?, 
+            payment_2_completed = ?, 
+            certified = ?, 
+            partner_activated = ?
+        WHERE user_id = ?`,
+        [
+          masterclass_attended,
+          registration_completed,
+          gap_completed,
+          payment_1_completed,
+          bridge_completed,
+          payment_2_completed,
+          certified,
+          partner_activated,
+          userId
+        ]
+      );
+      console.log(`[SYNC-AUTO] Updated progress for user ${user.email} to match stage ${currentStage}`);
+      return { progressUpdated: true, stage: currentStage };
+    }
+  } catch (err) {
+    console.error(`[SYNC ERROR] Failed to sync stage/progress for user ID ${userId}:`, err.message);
+  }
+  return null;
+}
+
+// Sync all users stage and progress records
+async function syncAllUsersStageAndProgress() {
+  try {
+    const users = await all('SELECT id FROM users');
+    for (const u of users) {
+      await syncUserStageAndProgress(u.id);
+    }
+    console.log('[SYNC] Successfully completed synchronization for all users.');
+  } catch (err) {
+    console.error('[SYNC ALL ERROR] Failed to sync all users:', err.message);
+  }
+}
+
 module.exports = {
   db,
   run,
@@ -526,5 +682,7 @@ module.exports = {
   initDatabase,
   isPostgres,
   getSetting,
-  setSetting
+  setSetting,
+  syncUserStageAndProgress,
+  syncAllUsersStageAndProgress
 };

@@ -124,6 +124,7 @@ app.get('/api/config', async (req, res) => {
 
     res.json({
       persistentBackend: db.isPostgres || !process.env.VERCEL,
+      isPostgres: db.isPostgres,
       friendDiscountEnabled: friendDiscountEnabledVal === 'true',
       friendDiscountPercent: parseInt(friendDiscountPercentStr, 10) || 10,
       commissionEnabled: commissionEnabledVal === 'true',
@@ -136,6 +137,7 @@ app.get('/api/config', async (req, res) => {
     console.error('Config API error:', err);
     res.json({
       persistentBackend: db.isPostgres || !process.env.VERCEL,
+      isPostgres: db.isPostgres,
       friendDiscountEnabled: true,
       friendDiscountPercent: 10,
       commissionEnabled: true,
@@ -237,7 +239,7 @@ app.post('/api/auth/verify-otp', async (req, res) => {
     // Clear verification session on success
     otpStore.delete(cleanEmail);
 
-    const user = await db.get(`
+    let user = await db.get(`
       SELECT u.*, b.name as batch_name, b.code as batch_code, b.masterclass_date, b.registration_date, b.gap_date, b.bridge_date
       FROM users u
       LEFT JOIN batches b ON u.batch_id = b.id
@@ -246,6 +248,16 @@ app.post('/api/auth/verify-otp', async (req, res) => {
     if (!user) {
       return res.status(404).json({ error: 'User record not found.' });
     }
+
+    await db.syncUserStageAndProgress(user.id);
+    
+    // Refresh user record with updated stage
+    user = await db.get(`
+      SELECT u.*, b.name as batch_name, b.code as batch_code, b.masterclass_date, b.registration_date, b.gap_date, b.bridge_date
+      FROM users u
+      LEFT JOIN batches b ON u.batch_id = b.id
+      WHERE LOWER(u.email) = ?
+    `, [cleanEmail]);
 
     // Setup cross-subdomain tracking cookie if parent domain is configured
     const parentDomain = process.env.PARENT_DOMAIN || null;
@@ -320,10 +332,13 @@ app.get('/api/user', async (req, res) => {
   }
 
   try {
-    const user = await db.get('SELECT * FROM users WHERE LOWER(email) = ?', [email.toLowerCase()]);
+    let user = await db.get('SELECT * FROM users WHERE LOWER(email) = ?', [email.toLowerCase()]);
     if (!user) {
       return res.status(401).json({ authenticated: false, error: 'User session not found.' });
     }
+
+    await db.syncUserStageAndProgress(user.id);
+    user = await db.get('SELECT * FROM users WHERE LOWER(email) = ?', [email.toLowerCase()]);
 
     res.json({
       authenticated: true,
@@ -351,10 +366,13 @@ app.get('/api/dashboard', async (req, res) => {
   }
 
   try {
-    const user = await db.get('SELECT * FROM users WHERE LOWER(email) = ?', [email.toLowerCase()]);
+    let user = await db.get('SELECT * FROM users WHERE LOWER(email) = ?', [email.toLowerCase()]);
     if (!user) {
       return res.status(404).json({ error: 'User not found.' });
     }
+
+    await db.syncUserStageAndProgress(user.id);
+    user = await db.get('SELECT * FROM users WHERE LOWER(email) = ?', [email.toLowerCase()]);
 
     const batch = await db.get('SELECT * FROM batches WHERE id = ?', [user.batch_id]);
     const progress = await db.get('SELECT * FROM user_progress WHERE user_id = ?', [user.id]);
@@ -719,6 +737,11 @@ app.get('/api/users/me', async (req, res) => {
   }
 
   try {
+    const checkUser = await db.get('SELECT id FROM users WHERE LOWER(email) = ?', [email.trim().toLowerCase()]);
+    if (checkUser) {
+      await db.syncUserStageAndProgress(checkUser.id);
+    }
+
     const user = await db.get(`
       SELECT u.*, b.name as batch_name, b.code as batch_code, b.masterclass_date, b.registration_date, b.gap_date, b.bridge_date
       FROM users u
@@ -850,6 +873,7 @@ app.get('/r/:code', async (req, res) => {
 // GET: Fetch unified admin dataset
 app.get('/api/admin/data', requireAuth, requireRole(['MD', 'OPERATIONS', 'FINANCE']), async (req, res) => {
   try {
+    await db.syncAllUsersStageAndProgress();
     const users = await db.all('SELECT u.*, b.name as batch_name FROM users u LEFT JOIN batches b ON u.batch_id = b.id ORDER BY u.created_at DESC');
     const batches = await db.all('SELECT * FROM batches ORDER BY id ASC');
     const payments = await db.all('SELECT p.*, u.name as user_name FROM payments p JOIN users u ON p.user_id = u.id ORDER BY p.created_at DESC');
@@ -937,6 +961,8 @@ app.put('/api/admin/user/:email', requireAuth, requireRole(['MD', 'OPERATIONS'])
       [name.trim(), newPhone.trim(), newRole, newStage, newBatchId, new Date().toISOString(), email.trim().toLowerCase()]
     );
 
+    await db.syncUserStageAndProgress(user.id, true);
+
     await db.logAudit(1, 'AdminUpdateUser', 'users', user.id, oldUser, {
       name: name.trim(),
       phone: newPhone.trim(),
@@ -978,6 +1004,7 @@ app.post('/api/admin/user', requireAuth, requireRole(['MD', 'OPERATIONS']), asyn
         'INSERT INTO user_progress (user_id) VALUES (?)',
         [newUserId]
       );
+      await db.syncUserStageAndProgress(newUserId, true);
     }
 
     await db.logEvent('UserCreatedByAdmin', { email: cleanEmail, role: role || 'USER' });
@@ -1378,6 +1405,9 @@ app.post('/api/admin/change-stage', requireAuth, requireRole(['MD', 'OPERATIONS'
     }
 
     await db.logAudit(1, 'ManualStageChange', 'users', userId, { current_stage: oldStage }, { current_stage: targetStage });
+
+    // Sync progress checkboxes to match the new stage
+    await db.syncUserStageAndProgress(userId, true);
 
     res.json({
       success: true,
