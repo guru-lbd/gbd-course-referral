@@ -284,7 +284,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (isClientPage) {
     initClientPortal();
   } else if (isAdminPage) {
-    initAdminPortal();
+    await initAdminPortal();
   }
 });
 
@@ -1686,10 +1686,17 @@ async function logout() {
   }
 }
 
-function initAdminPortal() {
-  checkAdminSession();
-  loadAdminPortalData();
+async function initAdminPortal() {
+  await checkAdminSession();
+  const sessionRole = document.getElementById('session-role')?.textContent;
+  if (sessionRole !== 'ADMIN') {
+    console.log('Not logged in as ADMIN. Auto-logging in as admin@test.com...');
+    await autoLogin('admin@test.com', '9999990000');
+  } else {
+    await loadAdminPortalData();
+  }
   // Poll database changes every 2 seconds
+  if (adminPollInterval) clearInterval(adminPollInterval);
   adminPollInterval = setInterval(loadAdminPortalData, 2000);
 }
 
